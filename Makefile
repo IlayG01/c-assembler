@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -Wall -pedantic -ansi
 
 # Source files
-SRC = src/main.c
+SRC = src/main.c src/assembler.c
 
 # Object files
 OBJ = $(SRC:.c=.o)
