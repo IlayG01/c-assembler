@@ -157,19 +157,19 @@ int is_label_exist(char* label, label_element* label_table, size_t label_count) 
 }
 
 int is_data_instruction(char* ins) {
-    return strchr(ins, '.data');
+    return NULL != strstr(ins, ".data");
 }
 
 int is_entry_instruction(char* ins) {
-    return strchr(ins, '.entry');
+    return NULL != strstr(ins, ".entry");
 }
 
 int is_extern_instruction(char* ins) {
-    return strchr(ins, '.extern');
+    return NULL != strstr(ins, ".extern");
 }
 
 int is_string_instruction(char* ins) {
-    return strchr(ins, '.string');
+    return NULL != strstr(ins, ".string");
 }
 
 int add_label_to_symbol_table(label_element** label_table, size_t* label_count, char* label, size_t address, label_options label_type) {
@@ -247,9 +247,10 @@ instruction parse_instruction(const char* line) {
     instr.operands[0] = NULL;
     instr.operands[1] = NULL;
 
-    /* char buffer[MAX_BUF_SIZE]; */
-    /* strcpy(buffer, line);  /* Copy to modify safely */
-    char* token = strtok(line, " ,");  /* First token (opcode) */
+    char buffer[MAX_BUF_SIZE];
+    strcpy(buffer, line);  /* Copy to modify safely */
+    char* token = strtok(buffer, " ,");  /* First token (opcode) */
+    
 
     if (!token) {
         instr.opcode = INVALID;
@@ -264,7 +265,7 @@ instruction parse_instruction(const char* line) {
     /* Extract operands */
     int i = 0;
     while ((token = strtok(NULL, " ,")) && i < MAX_OPERANDS) {
-        instr.operands[i] = token;  
+        instr.operands[i] = strdup(token);  
         instr.num_of_operands++;
         i++;
     }
@@ -381,7 +382,7 @@ int validate_instruction(const instruction* instr) {
     return SUCCESS;  /* Valid instruction */
 }
 
-first_word generate_first_word(instruction* instr) {
+first_word generate_first_word(const instruction* instr) {
     first_word first_word_val;
     first_word_val.A = 1;
     first_word_val.R = 0;
@@ -403,7 +404,7 @@ first_word generate_first_word(instruction* instr) {
         first_word_val.src_reg = 0;
         first_word_val.dest_address = get_addressing_mode(instr->operands[1]);
         if (first_word_val.dest_address == 3) {
-            first_word_val.dest_reg = instr->operands[1][1] - '0';
+            first_word_val.dest_reg = instr->operands[0][1] - '0';
         }
     } else {
         first_word_val.src_address = 0;
@@ -415,7 +416,7 @@ first_word generate_first_word(instruction* instr) {
     return first_word_val;
 }
 
-int calculate_number_of_words(instruction* instr) {
+int calculate_number_of_words(const instruction* instr) {
     if (instr->num_of_operands == 2) {
         /* Instruction has both source and destination operands */
         int src_mode = get_addressing_mode(instr->operands[0]);
@@ -431,12 +432,12 @@ int calculate_number_of_words(instruction* instr) {
 }
 
 operand generate_operand_code(char* operand_val) {
-    operand operandd = {0};
-    operandd.A = 1;
-    operandd.R = 0;
-    operandd.E = 0;
-    operandd.integer = atoi(operand_val+1); /* skip the # */
-    return operandd;
+    operand operand = {0};
+    operand.A = 1;
+    operand.R = 0;
+    operand.E = 0;
+    operand.integer = atoi(operand_val+1); /* skip the # */
+    return operand;
 }
 
 int build_instruction(instruction* instr, machine_code* machine_code) {
@@ -459,6 +460,27 @@ int build_instruction(instruction* instr, machine_code* machine_code) {
     return resolved;
 }
 
+void strip_whitespace(char *str) {
+    int start = 0, end = strlen(str) - 1;
+
+    /* Trim leading whitespace */
+    while (isspace((unsigned char)str[start])) {
+        start++;
+    }
+
+    /* Trim trailing whitespace */
+    while (end > start && isspace((unsigned char)str[end])) {
+        end--;
+    }
+
+    /* Shift characters forward */
+    int i;
+    for (i = 0; i <= end - start; i++) {
+        str[i] = str[start + i];
+    }
+    str[i] = '\0'; /* Null-terminate the string */
+}
+
 int first_cycle(FILE* file) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     int len;
@@ -476,6 +498,8 @@ int first_cycle(FILE* file) {
         if (len > 80) {
             return LINE_TOO_LONG;
         }
+        strip_whitespace(line);
+
         if (line[0] == ';') {
             /* comment - skip */
             continue;
@@ -490,7 +514,8 @@ int first_cycle(FILE* file) {
                 return INVALID_LABEL;
             }
         }
-        char* mod_line = line + strlen(label);  /* now line is a command without label */
+        char* mod_line = line + strlen(label) + 1;  /* now line is a command without label (+1 for :)*/
+        strip_whitespace(mod_line);
 
         if (is_line_with_label && is_label_exist(label, label_table, label_count)) {
             return LABEL_ALREADY_EXIST;
@@ -499,7 +524,7 @@ int first_cycle(FILE* file) {
         if (is_data_instruction(mod_line) || is_string_instruction(mod_line)) {
             if (is_line_with_label) {
                 error = add_label_to_symbol_table(&label_table, &label_count, label, DC, data_label);
-                if (!error) {
+                if (error) {
                     return error;
                 }
             }
@@ -509,7 +534,7 @@ int first_cycle(FILE* file) {
             } else {
                 error = translate_string(data, &data_count, mod_line);
             }
-            if (!error) {
+            if (error) {
                 return error;
             }
             DC += (data_count - data_count_temp);
@@ -522,7 +547,7 @@ int first_cycle(FILE* file) {
             char* token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
             token = strtok(NULL, " \t"); /* Get the next token, which is the name */
             error = add_label_to_symbol_table(&label_table, &label_count, token, IC, extern_label);
-            if (!error) {
+            if (error) {
                 return error;
             }
         }
@@ -530,17 +555,17 @@ int first_cycle(FILE* file) {
             /* this is an instruction! */
             if (is_line_with_label) {
                 error = add_label_to_symbol_table(&label_table, &label_count, label, IC, code_label);
-                if (!error) {
+                if (error) {
                     return error;
                 }
             }
             instruction ins = parse_instruction(mod_line);
             error = validate_instruction(&ins);
-            if (!error) {
+            if (error) {
                 return error;
             }
 
-            int L = calculate_number_of_words(mod_line);
+            int L = calculate_number_of_words(&ins);
             if (L == 1) {
                 code[code_count].operand_code = NULL;    
             } else {
@@ -548,10 +573,7 @@ int first_cycle(FILE* file) {
             }
             code->IC = IC;
             code->L = L;
-            int resolved = 0;
-            if (L > 1) {
-                resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
-            }
+            int resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
             code->need_to_resolve = resolved != (L - 1);
             IC += L;
             code_count++;
@@ -604,7 +626,7 @@ int first_cycle(FILE* file) {
 
     /* TODO: understand how to save the index of the labal to resolve it easily in round 2     */
 
-
+    /* strip whitespaces */
     /* second cycle */
     /* write to files */
     /* errors */
