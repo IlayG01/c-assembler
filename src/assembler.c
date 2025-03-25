@@ -503,48 +503,56 @@ void strip_whitespace(char *str) {
     str[i] = '\0'; /* Null-terminate the string */
 }
 
-void save_obj_file(machine_code* code, size_t code_count, data* data, size_t data_count, size_t ICF, size_t DCF) {
-    int j;
-    int i;
+void save_obj_file(const char* filename, machine_code* code, size_t code_count, data* data, size_t data_count, size_t ICF, size_t DCF) {
+    FILE* file = fopen(filename, "w");
     int line_number = 100;
+    int i, j;
 
-    printf("%7d %d\n", ICF-100, DCF);
+    fprintf(file, "%7ld %ld\n", ICF-100, DCF);
     for (i = 0; i < code_count; i++)
     {
-        printf("%07d ", line_number++);
-        print_first_word_hex(&code[i].first_word_val);
+        fprintf(file, "%07d ", line_number++);
+        write_first_word_hex_to_file(file, &code[i].first_word_val);
+
         for (j = 0; j < code[i].L-1; j++)
         {
-            printf("%07d ", line_number++);
-            print_operand_hex(&code[i].operand_code[j]);
+            fprintf(file, "%07d ", line_number++);
+            write_operand_hex_to_file(file, &code[i].operand_code[j]);
         }
     }
     for (i = 0; i < data_count; i++)
     {
-        printf("%07d ", line_number++);
-        printf("%06X\n", data[i].integer);
+        fprintf(file, "%07d %06X\n", line_number++, data[i].integer);
     }
+
+    fclose(file);
 }
 
-void save_entries_file(label_element* label_table, size_t label_count) {
+void save_entries_file(const char* filename, label_element* label_table, size_t label_count) {
+    FILE* file = fopen(filename, "w");
     int i;
-    for (i = 0; i < label_count; i++)
-    {
+
+    for (i = 0; i < label_count; i++) {
         if (label_table[i].label_type & entry_label) {
-            printf("%s %07d\n", label_table[i].label_name, label_table[i].address);
+            fprintf(file, "%s %07d\n", label_table[i].label_name, label_table[i].address);
         }
     }
+
+    fclose(file);
 }
 
-void save_externals_file(external_info* externals, size_t externals_count) {
+void save_externals_file(const char* filename, external_info* externals, size_t externals_count) {
+    FILE* file = fopen(filename, "w");
     int i;
-    for (i = 0; i < externals_count; i++)
-    {
-            printf("%s %07d\n", externals[i].label_name, externals[i].address);
+
+    for (i = 0; i < externals_count; i++) {
+        fprintf(file, "%s %07d\n", externals[i].label_name, externals[i].address);
     }
+
+    fclose(file);
 }
 
-void print_first_word_hex(first_word* first_word) {
+void write_first_word_hex_to_file(FILE* file, first_word* first_word) {
     unsigned int value = 0;
 
     value |= (first_word->E            & 0x1)      << 0;   
@@ -557,10 +565,10 @@ void print_first_word_hex(first_word* first_word) {
     value |= (first_word->src_address  & 0x3)      << 16;  
     value |= (first_word->opcode_value & 0x3F)     << 18;  
 
-    printf("%06X\n", value & 0xFFFFFF);
+    fprintf(file, "%06X\n", value & 0xFFFFFF);
 }
 
-void print_operand_hex(operand* operand) {
+void write_operand_hex_to_file(FILE* file, operand* operand) {
     unsigned int value = 0;
 
     value |= (operand->E        & 0x1)       << 0;   
@@ -568,7 +576,7 @@ void print_operand_hex(operand* operand) {
     value |= (operand->A        & 0x1)       << 2;   
     value |= (operand->integer  & 0x1FFFFF)  << 3;   
 
-    printf("%06X\n", value & 0xFFFFFF);
+    fprintf(file, "%06X\n", value & 0xFFFFFF);
 }
 
 int first_cycle(FILE* file) {
@@ -718,9 +726,9 @@ int first_cycle(FILE* file) {
 
     second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
 
-    save_obj_file(code, code_count, data, data_count, ICF, DCF);
-    save_entries_file(label_table, label_count);
-    save_externals_file(externals, externals_count);
+    save_obj_file("file.obj", code, code_count, data, data_count, ICF, DCF);
+    save_entries_file("file.ent", label_table, label_count);
+    save_externals_file("file.ext", externals, externals_count);
     
 
     for (i = 0; i < label_count; i++)
@@ -741,19 +749,12 @@ int first_cycle(FILE* file) {
     
     return SUCCESS;
 
-    /* for symbol in symbol_table: */
-    /*     if data: */
-    /*         symbol_addr += ICF; */
-
-    /* TODO: understand how to save the index of the labal to resolve it easily in round 2     */
-
     /* strip whitespaces */
-    /* second cycle */
     /* write to files */
     /* errors */
-    /* run this code */
     /* free memory */
     /* split to files */
+    /* order the code */
 }
 
 int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
