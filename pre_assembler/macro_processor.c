@@ -33,6 +33,7 @@ void trim_whitespace(char* str);
 void strip_newline(char* str);
 void add_macro(const char* name);
 void add_line_to_macro(int macro_index, const char* line);
+void clear_macro_table();
 
 int main(int argc, char* argv[]) {
     int i;
@@ -65,6 +66,8 @@ int process_file(const char* input_file) {
     int in_macro_def = 0;
     int current_macro_index = -1;
     char* token;
+
+    clear_macro_table();
     
     /* Check if the file exists */
     in_file = fopen(input_file, "r");
@@ -104,9 +107,6 @@ int process_file(const char* input_file) {
             }
             continue;
         }
-        
-        /* Remove leading/trailing whitespace */
-        trim_whitespace(line);
         
         /* Check if this is the start of a macro definition */
         if (strncmp(line, "mcro ", 5) == 0) {
@@ -336,4 +336,9 @@ void add_line_to_macro(int macro_index, const char* line) {
     
     strcpy(macro_table[macro_index].lines[macro_table[macro_index].line_count], line);
     macro_table[macro_index].line_count++;
+}
+
+void clear_macro_table() {
+    memset(macro_table, 0, sizeof(macro_table));
+    macro_count = 0;
 }
