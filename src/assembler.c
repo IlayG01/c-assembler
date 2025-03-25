@@ -99,6 +99,11 @@ typedef struct {
     label_options label_type;
 } label_element;
 
+typedef struct {
+    int address;
+    char *label_name;
+} external_info;
+
 /* Function to check if a label is valid */
 int is_valid_label(const char *label) {
     int len = strlen(label);
@@ -531,6 +536,14 @@ void save_entries_file(label_element* label_table, size_t label_count) {
     }
 }
 
+void save_externals_file(external_info* externals, size_t externals_count) {
+    int i;
+    for (i = 0; i < externals_count; i++)
+    {
+            printf("%s %07d\n", externals[i].label_name, externals[i].address);
+    }
+}
+
 void print_first_word_hex(first_word* first_word) {
     unsigned int value = 0;
 
@@ -565,11 +578,14 @@ int first_cycle(FILE* file) {
     size_t IC = 100;
     size_t DC = 0;
     machine_code code[MAX_INSTRUCTIONS];
-    data data[MAX_INSTRUCTIONS]; 
+    data data[MAX_INSTRUCTIONS];
+    external_info externals[MAX_INSTRUCTIONS];
     label_element* label_table = NULL;
     size_t label_count = 0;
     size_t data_count = 0;
     size_t code_count = 0;
+    size_t externals_count = 0;
+    
     /* TODO: add error detection */
     while (fgets(line, sizeof(line), file) != NULL) {
         if (strlen(line) > 80) {
@@ -700,11 +716,11 @@ int first_cycle(FILE* file) {
     }
     
 
-    second_cycle(file, label_table, label_count, code, code_count);
+    second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
 
     save_obj_file(code, code_count, data, data_count, ICF, DCF);
-    
     save_entries_file(label_table, label_count);
+    save_externals_file(externals, externals_count);
     
 
     for (i = 0; i < label_count; i++)
@@ -718,6 +734,11 @@ int first_cycle(FILE* file) {
             free(code[i].operand_code);
         }
     }
+    for (i = 0; i < externals_count; i++)
+    {
+        free(externals[i].label_name);
+    }
+    
     return SUCCESS;
 
     /* for symbol in symbol_table: */
@@ -735,7 +756,7 @@ int first_cycle(FILE* file) {
     /* split to files */
 }
 
-int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count) {
+int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
 /* if this is entry command look for the symbol table */
 /* iterate over the structs of commands. complete them if necessary (in case of a label) */
 /* create the actual bytes */
@@ -826,6 +847,16 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                     if (address_mode == 2) {
                         return INVALID_JUMP_TO_EXTERNAL_ADDRESS;
                     }
+
+                    externals[*externals_count].address = code[code_line_number].IC + 1 + operand_code_index;
+                    char* label_copy = (char*)malloc(strlen((label_name)) + 1);
+                    if (!label_copy) {
+                        return MEMORY_ALLOCATION_FAILED;
+                    }
+                    strcpy(label_copy, label_name);
+                    externals[*externals_count].label_name = label_copy;
+                    (*externals_count)++;
+
                     code[code_line_number].operand_code[operand_code_index].A = 0;
                     code[code_line_number].operand_code[operand_code_index].R = 0;
                     code[code_line_number].operand_code[operand_code_index].E = 1;
