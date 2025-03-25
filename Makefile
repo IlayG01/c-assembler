@@ -2,7 +2,7 @@
 CC = gcc
 
 # Compiler Flags
-CFLAGS = -Wall -pedantic -ansi
+CFLAGS = -Wall -pedantic -ansi -g
 
 # Source files
 SRC = src/main.c src/assembler.c

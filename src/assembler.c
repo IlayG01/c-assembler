@@ -11,6 +11,7 @@
 #define MAX_INSTRUCTIONS 1000
 #define MAX_LABEL_LENGTH 31
 #define MAX_OPERANDS 2
+#define WORD_SIZE 3  /* 24/8 bytes*/
 
 
 int assemble(char* filename) {
@@ -32,9 +33,10 @@ int assemble(char* filename) {
 }
 
 typedef enum {
-    MOV = 0, CMP, ADD, SUB = 2, LEA = 4, CLR, NOT = 5, INC = 5, DEC = 5,
-    JMP = 9, BNE = 9, JSR = 9, RED = 12, PRN, RTS, STOP, INVALID
+    MOV, CMP, ADD, SUB, LEA, CLR, NOT, INC, DEC,
+    JMP, BNE, JSR, RED, PRN, RTS, STOP, INVALID
 } opcode;
+
 /* Mapping opcodes from strings to enum */
 const char* OPCODE_STRINGS[] = {
     "mov", "cmp", "add", "sub", "lea",
@@ -72,7 +74,7 @@ typedef struct {
 typedef struct {
     opcode opcode;
     size_t num_of_operands;
-    char* operands[MAX_OPERANDS];
+    char operands[MAX_OPERANDS][MAX_LABEL_LENGTH];
 } instruction;
 
 typedef struct {
@@ -84,10 +86,10 @@ typedef struct {
 } machine_code;
 
 typedef enum {
-    data_label,
-    entry_label,
-    extern_label,
-    code_label
+    data_label = 0x1,
+    entry_label = 0x10,
+    extern_label = 0x100,
+    code_label = 0x1000
 } label_options;
 
 typedef struct {
@@ -148,7 +150,7 @@ int is_label_exist(char* label, label_element* label_table, size_t label_count) 
     int i;
     for (i = 0; i < label_count; i++)
     {
-        if (strcmp(label_table[i].label_name, label)) {
+        if (!strcmp(label_table[i].label_name, label)) {
             return 1;
         }
     }
@@ -188,24 +190,26 @@ int add_label_to_symbol_table(label_element** label_table, size_t* label_count, 
     (*label_table)[current_label_count].label_type = label_type;
 
     /* Allocate memory for the label name and copy it */
-    (*label_table)[current_label_count].label_name = strdup(label);
-    if (!(*label_table)[current_label_count].label_name) {
+    char* label_copy = (char*)malloc(strlen((label)) + 1);
+    if (!label_copy) {
         return MEMORY_ALLOCATION_FAILED;
     }
+    strcpy(label_copy, label);
 
-    current_label_count++;
+    (*label_table)[current_label_count].label_name = label_copy;
+
+    (*label_count)++;
     return SUCCESS; /* Success */
 }
 
 int translate_data(data* data, size_t* count, char* line) {
     char *token = strtok(line, " ,"); /* Tokenize by spaces and commas */
-    if (!token || strcmp(token, ".data") != 0) return -1; /* Ensure it's a `.data` directive */
+    if (!token || strcmp(token, ".data")) return -1; /* Ensure it's a `.data` directive */
 
     while ((token = strtok(NULL, " ,")) != NULL) {
         int value = atoi(token); /* Convert the token into an integer */
 
         data[*count].integer = value; /* Use the `data` struct's integer field */
-
         (*count)++;
     }
     return 0; /* Success */
@@ -213,7 +217,7 @@ int translate_data(data* data, size_t* count, char* line) {
 
 int translate_string(data* data, size_t* count, char* line) {
     char *token = strtok(line, " ,"); /* Tokenize by spaces and commas */
-    if (!token || strcmp(token, ".string") != 0) return 1; /* Ensure it's a `.string` directive */
+    if (!token || strcmp(token, ".string")) return 1; /* Ensure it's a `.string` directive */
 
     token = strtok(NULL, "\""); /* Get the string inside quotes */
     /* if (!token) return -1; /* Ensure a valid string is present */
@@ -234,18 +238,18 @@ int translate_string(data* data, size_t* count, char* line) {
 opcode get_opcode(const char* str) {
     int i;
     for (i = 0; i < INVALID; i++) {
-        if (strcmp(str, OPCODE_STRINGS[i]) == 0) {
+        if (!strcmp(str, OPCODE_STRINGS[i])) {
             return (opcode)i;
         }
     }
     return INVALID;  /* Return INVALID if not found */
 }
 
-instruction parse_instruction(const char* line) {
-    instruction instr;
-    instr.num_of_operands = 0;
-    instr.operands[0] = NULL;
-    instr.operands[1] = NULL;
+void parse_instruction(instruction* instr, const char* line) {
+    instr->num_of_operands = 0;
+    /*instr->operands[0] = NULL;
+    instr->operands[1] = NULL;
+    */
 
     char buffer[MAX_BUF_SIZE];
     strcpy(buffer, line);  /* Copy to modify safely */
@@ -253,40 +257,47 @@ instruction parse_instruction(const char* line) {
     
 
     if (!token) {
-        instr.opcode = INVALID;
-        return instr;
+        instr->opcode = INVALID;
+        return;
     }
 
-    instr.opcode = get_opcode(token);
-    if (instr.opcode == INVALID) {
-        return instr;
+    instr->opcode = get_opcode(token);
+    if (instr->opcode == INVALID) {
+        return;
     }
 
     /* Extract operands */
     int i = 0;
     while ((token = strtok(NULL, " ,")) && i < MAX_OPERANDS) {
-        instr.operands[i] = strdup(token);  
-        instr.num_of_operands++;
+        /* Allocate memory for the operand and copy it */
+        /*char* operand_copy = (char*)malloc(strlen((token)) + 1);
+        if (!operand_copy) {
+            return MEMORY_ALLOCATION_FAILED;
+        }
+        strcpy(operand_copy, token);
+        */
+        strcpy(instr->operands[i], token);
+        /* instr->operands[i] = token;*/
+        instr->num_of_operands++;
         i++;
     }
 
     if (strtok(NULL, " ,") != NULL) {
-        instr.opcode = INVALID;  /* Mark as invalid */
+        instr->opcode = INVALID;  /* Mark as invalid */
     }
-
-    return instr;
 }
 
-/* Function to free allocated memory */
+/* Function to free allocated memory 
 void free_instruction(instruction* instr) {
     int i;
     for (i = 0; i < instr->num_of_operands; i++) {
-        free(instr->operands[i]);  /* Free dynamically allocated memory */
+        free(instr->operands[i]);
     }
-}
+}*/
 
 typedef struct {
     opcode opcode;
+    int opcode_value;
     int funct;
     int num_of_operands;
     int valid_source_modes[3];  /* Allowed source operand addressing modes */
@@ -295,23 +306,29 @@ typedef struct {
     int num_dest_modes;
 } OpcodeRule;
 
+/*
+typedef enum {
+    MOV = 0, CMP, ADD, SUB = 2, LEA = 4, CLR, NOT = 5, INC = 5, DEC = 5,
+    JMP = 9, BNE = 9, JSR = 9, RED = 12, PRN, RTS, STOP, INVALID
+} opcode;
+*/
 const OpcodeRule OPCODE_TABLE[] = {
-    {MOV, 0, 2, {0, 1, 3}, 3, {1, 3}, 2},    /* mov */
-    {CMP, 1, 2, {0, 1, 3}, 3, {0, 1, 3}, 3}, /* cmp */
-    {ADD, 1, 2, {1, 3}, 2, {1, 3}, 2},       /* add */
-    {SUB, 2, 2, {1, 3}, 2, {1, 3}, 2},       /* sub */
-    {LEA, 4, 2, {1}, 1, {1, 3}, 2},          /* lea */
-    {CLR, 1, 1, {}, 0, {1, 3}, 2},           /* clr */
-    {NOT, 2, 1, {}, 0, {1, 3}, 2},           /* not */
-    {INC, 3, 1, {}, 0, {1, 3}, 2},           /* inc */
-    {DEC, 4, 1, {}, 0, {1, 3}, 2},           /* dec */
-    {JMP, 1, 1, {}, 0, {1, 2}, 2},           /* jmp */
-    {BNE, 2, 1, {}, 0, {1, 2}, 2},           /* bne */
-    {JSR, 3, 1, {}, 0, {1, 2}, 2},           /* jsr */
-    {RED, 0, 1, {}, 0, {1, 3}, 2},           /* red */
-    {PRN, 0, 1, {}, 0, {0, 1, 3}, 3},        /* prn */
-    {RTS, 0, 0, {}, 0, {}, 0},               /* rts */
-    {STOP, 0, 0, {}, 0, {}, 0}               /* stop */
+    {MOV, 0, 0, 2, {0, 1, 3}, 3, {1, 3}, 2},    /* mov */
+    {CMP, 1, 0, 2, {0, 1, 3}, 3, {0, 1, 3}, 3}, /* cmp */
+    {ADD, 2, 1, 2, {1, 3}, 2, {1, 3}, 2},       /* add */
+    {SUB, 2, 2, 2, {1, 3}, 2, {1, 3}, 2},       /* sub */
+    {LEA, 4, 0, 2, {1}, 1, {1, 3}, 2},          /* lea */
+    {CLR, 5, 1, 1, {}, 0, {1, 3}, 2},           /* clr */
+    {NOT, 5, 2, 1, {}, 0, {1, 3}, 2},           /* not */
+    {INC, 5, 3, 1, {}, 0, {1, 3}, 2},           /* inc */
+    {DEC, 5, 4, 1, {}, 0, {1, 3}, 2},           /* dec */
+    {JMP, 9, 1, 1, {}, 0, {1, 2}, 2},           /* jmp */
+    {BNE, 9, 2, 1, {}, 0, {1, 2}, 2},           /* bne */
+    {JSR, 9, 3, 1, {}, 0, {1, 2}, 2},           /* jsr */
+    {RED, 12, 0, 1, {}, 0, {1, 3}, 2},           /* red */
+    {PRN, 13, 0, 1, {}, 0, {0, 1, 3}, 3},        /* prn */
+    {RTS, 14, 0, 0, {}, 0, {}, 0},               /* rts */
+    {STOP, 15, 0, 0, {}, 0, {}, 0}               /* stop */
 };
 
 const int OPCODE_TABLE_SIZE = sizeof(OPCODE_TABLE) / sizeof(OPCODE_TABLE[0]);
@@ -388,7 +405,7 @@ first_word generate_first_word(const instruction* instr) {
     first_word_val.R = 0;
     first_word_val.E = 0;
     const OpcodeRule* opcode_rule = get_opcode_rule(instr->opcode);
-    first_word_val.opcode_value = opcode_rule->opcode;
+    first_word_val.opcode_value = opcode_rule->opcode_value;
     first_word_val.funct = opcode_rule->funct;
     if (instr->num_of_operands == 2) {
         first_word_val.src_address = get_addressing_mode(instr->operands[0]);
@@ -426,7 +443,7 @@ int calculate_number_of_words(const instruction* instr) {
     } else if (instr->num_of_operands == 1) {
         /* Instruction only has a destination operand */
         int dest_mode = get_addressing_mode(instr->operands[0]);
-        return 1 + dest_mode != 3;
+        return 1 + (dest_mode != 3);
     }
     return 1;
 }
@@ -514,7 +531,11 @@ int first_cycle(FILE* file) {
                 return INVALID_LABEL;
             }
         }
-        char* mod_line = line + strlen(label) + 1;  /* now line is a command without label (+1 for :)*/
+
+        char* mod_line = line;
+        if (is_line_with_label) {
+            mod_line += strlen(label) + 1;  /* now line is a command without label (+1 for :)*/
+        }
         strip_whitespace(mod_line);
 
         if (is_line_with_label && is_label_exist(label, label_table, label_count)) {
@@ -537,7 +558,7 @@ int first_cycle(FILE* file) {
             if (error) {
                 return error;
             }
-            DC += (data_count - data_count_temp);
+            DC += ((data_count - data_count_temp)*WORD_SIZE);
         }
 
         else if (is_entry_instruction(mod_line)) {
@@ -559,7 +580,8 @@ int first_cycle(FILE* file) {
                     return error;
                 }
             }
-            instruction ins = parse_instruction(mod_line);
+            instruction ins;
+            parse_instruction(&ins, mod_line);  /*return value */
             error = validate_instruction(&ins);
             if (error) {
                 return error;
@@ -574,7 +596,7 @@ int first_cycle(FILE* file) {
             code->IC = IC;
             code->L = L;
             int resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
-            code->need_to_resolve = resolved != (L - 1);
+            code[code_count].need_to_resolve = resolved != (L - 1);
             IC += L;
             code_count++;
         }
@@ -603,23 +625,36 @@ int first_cycle(FILE* file) {
         /* think how to handle multiple errors (prabably a linked list of errors - line number, error, maybe params)  */
         /* add a pretty print for errors */
     }
+
+    /* values are used for building object file */
     int i;
+    size_t ICF;
+    size_t DCF;
+    ICF = IC;
+    DCF = DC;
     for (i = 0; i < label_count; i++)
     {
-        free(label_table->label_name);
-    }
-    free(label_table);
-    for (i = 0; i < MAX_INSTRUCTIONS; i++)
-    {
-        if (code->operand_code != NULL) {
-            free(code->operand_code);
+        if (label_table[i].label_type == data_label) {
+            label_table[i].address += ICF;
         }
     }
     
 
-    /* values are used for building object file */
-    /* ICF = IC; */
-    /* DCF = DC; */
+    second_cycle(file, label_table, label_count, code, code_count);
+
+    for (i = 0; i < label_count; i++)
+    {
+        free(label_table[i].label_name);
+    }
+    free(label_table);
+    for (i = 0; i < code_count; i++)
+    {
+        if (code[i].operand_code != NULL) {
+            free(code[i].operand_code);
+        }
+    }
+    
+
     /* for symbol in symbol_table: */
     /*     if data: */
     /*         symbol_addr += ICF; */
@@ -635,9 +670,110 @@ int first_cycle(FILE* file) {
     /* split to files */
 }
 
-int second_cycle(FILE* file) {
+int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count) {
 /* if this is entry command look for the symbol table */
 /* iterate over the structs of commands. complete them if necessary (in case of a label) */
 /* create the actual bytes */
 /* create the files for each  */
+    char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
+    int code_line_number = 0;
+    int len;
+    int i;
+    int error;
+
+    rewind(file);
+    while (len = fgets(line, sizeof(line), file)) {
+        strip_whitespace(line);
+
+        if (line[0] == ';') {
+            /* comment - skip */
+            continue;
+        }
+
+        char label[MAX_LABEL_LENGTH + 1] = {0};
+        char* mod_line = line;
+        if (strchr(line, ':')) {
+            get_label(line, label);  /* cant be wrong label - because we check in first cycle */
+            mod_line += strlen(label) + 1;
+        }
+
+        strip_whitespace(mod_line);
+        
+        if (is_data_instruction(mod_line) || is_string_instruction(mod_line) || is_extern_instruction(mod_line)) {
+            continue;
+        }
+        if (is_entry_instruction(mod_line)) {
+            char* token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
+            int found = 0;
+            token = strtok(NULL, " \t"); /* Get the next token, which is the name */
+
+            for (i = 0; i < label_count; i++)
+            {
+                if (!strcmp(token, label_table[i].label_name)) {
+                    label_table[i].label_type |= entry_label;
+                    found = 1;
+                }
+            }
+            if (found) {
+                continue;
+            }
+            return ENTRY_LABEL_DOESNT_EXIST;
+        }
+
+        if (code[code_line_number].need_to_resolve) {
+            instruction instr;
+            int address_mode;
+            int operand_code_index = 0;
+            int label_type;
+            parse_instruction(&instr, mod_line);
+            for (i = 0; i < instr.num_of_operands; i++) {
+                address_mode = get_addressing_mode(instr.operands[i]);
+                if (address_mode == 0) {
+                    operand_code_index++;  /* already built */
+                    continue;
+                }
+                if (address_mode == 3) {
+                    continue;  /* no additional word for reg address */
+                }
+                if (!is_label_exist(instr.operands[i], label_table, label_count)) {
+                    return LABEL_DOES_NOT_EXIST;
+                }
+
+                int label_address;
+                for (i = 0; i < label_count; i++)
+                {
+                    if (!strcmp(instr.operands[i], label_table[i].label_name)) {
+                        label_address = label_table[i].address;
+                        label_type = label_table[i].label_type;
+                        break;
+                    }
+                }
+
+                if (label_type == extern_label) {
+                    if (address_mode == 2) {
+                        return INVALID_JUMP_TO_EXTERNAL_ADDRESS;
+                    }
+                    code[code_line_number].operand_code[operand_code_index].A = 0;
+                    code[code_line_number].operand_code[operand_code_index].R = 0;
+                    code[code_line_number].operand_code[operand_code_index].E = 1;
+                    code[code_line_number].operand_code[operand_code_index].integer = 0;
+                } else {
+                    code[code_line_number].operand_code[operand_code_index].E = 0;
+                    if (address_mode == 2) {
+                        code[code_line_number].operand_code[operand_code_index].A = 1;                        
+                        code[code_line_number].operand_code[operand_code_index].R = 0;
+                    } else {
+                        /* address mode == 1 */
+                        code[code_line_number].operand_code[operand_code_index].A = 0;
+                        code[code_line_number].operand_code[operand_code_index].R = 1;
+                    }
+                    code[code_line_number].operand_code[operand_code_index].integer = label_address;
+                }
+                operand_code_index++;
+            }
+            
+        }
+        code_line_number++;
+    }
+    /* TODO: Declare Externals and Entries to build the files */
 }
