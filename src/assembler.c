@@ -503,21 +503,31 @@ void save_obj_file(machine_code* code, size_t code_count, data* data, size_t dat
     int i;
     int line_number = 100;
 
-    printf("%6d %d\n", ICF-100, DCF);
+    printf("%7d %d\n", ICF-100, DCF);
     for (i = 0; i < code_count; i++)
     {
-        printf("%06d ", line_number++);
+        printf("%07d ", line_number++);
         print_first_word_hex(&code[i].first_word_val);
         for (j = 0; j < code[i].L-1; j++)
         {
-            printf("%06d ", line_number++);
+            printf("%07d ", line_number++);
             print_operand_hex(&code[i].operand_code[j]);
         }
     }
     for (i = 0; i < data_count; i++)
     {
-        printf("%06d ", line_number++);
+        printf("%07d ", line_number++);
         printf("%06X\n", data[i].integer);
+    }
+}
+
+void save_entries_file(label_element* label_table, size_t label_count) {
+    int i;
+    for (i = 0; i < label_count; i++)
+    {
+        if (label_table[i].label_type & entry_label) {
+            printf("%s %07d\n", label_table[i].label_name, label_table[i].address);
+        }
     }
 }
 
@@ -691,8 +701,11 @@ int first_cycle(FILE* file) {
     
 
     second_cycle(file, label_table, label_count, code, code_count);
-    
+
     save_obj_file(code, code_count, data, data_count, ICF, DCF);
+    
+    save_entries_file(label_table, label_count);
+    
 
     for (i = 0; i < label_count; i++)
     {
