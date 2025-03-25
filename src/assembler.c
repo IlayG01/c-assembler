@@ -24,11 +24,6 @@ int assemble(char* filename) {
     if (SUCCESS != result) {
         return result;
     }
-    /* rewind(file); */
-    /* result = second_cycle(file); */
-    /* if (SUCCESS != result) { */
-    /*     return result; */
-    /* } */
 }
 
 typedef enum {
@@ -137,18 +132,8 @@ void get_label(char* line, char* label) {
     int label_length = colon_pos - line;
     
     /* Copy the label to a separate string and remove trailing spaces */
-    /* char label[MAX_LABEL_LENGTH + 1]; */
     strncpy(label, line, label_length);
     label[label_length] = '\0';
-
-    /* Validate and print the label */
-    /* if (is_valid_label(label)) { */
-    /*     printf("Valid label: %s\n", label); */
-    /* } else { */
-    /*     printf("Invalid label\n"); */
-    /* } */
-
-    /* return 0; */
 }
 
 int is_label_exist(char* label, label_element* label_table, size_t label_count) {
@@ -225,7 +210,6 @@ int translate_string(data* data, size_t* count, char* line) {
     if (!token || strcmp(token, ".string")) return 1; /* Ensure it's a `.string` directive */
 
     token = strtok(NULL, "\""); /* Get the string inside quotes */
-    /* if (!token) return -1; /* Ensure a valid string is present */
 
     size_t str_len = strlen(token);
 
@@ -252,9 +236,6 @@ opcode get_opcode(const char* str) {
 
 void parse_instruction(instruction* instr, const char* line) {
     instr->num_of_operands = 0;
-    /*instr->operands[0] = NULL;
-    instr->operands[1] = NULL;
-    */
 
     char buffer[MAX_BUF_SIZE];
     strcpy(buffer, line);  /* Copy to modify safely */
@@ -274,15 +255,7 @@ void parse_instruction(instruction* instr, const char* line) {
     /* Extract operands */
     int i = 0;
     while ((token = strtok(NULL, " ,")) && i < MAX_OPERANDS) {
-        /* Allocate memory for the operand and copy it */
-        /*char* operand_copy = (char*)malloc(strlen((token)) + 1);
-        if (!operand_copy) {
-            return MEMORY_ALLOCATION_FAILED;
-        }
-        strcpy(operand_copy, token);
-        */
         strcpy(instr->operands[i], token);
-        /* instr->operands[i] = token;*/
         instr->num_of_operands++;
         i++;
     }
@@ -291,14 +264,6 @@ void parse_instruction(instruction* instr, const char* line) {
         instr->opcode = INVALID;  /* Mark as invalid */
     }
 }
-
-/* Function to free allocated memory 
-void free_instruction(instruction* instr) {
-    int i;
-    for (i = 0; i < instr->num_of_operands; i++) {
-        free(instr->operands[i]);
-    }
-}*/
 
 typedef struct {
     opcode opcode;
@@ -311,29 +276,23 @@ typedef struct {
     int num_dest_modes;
 } OpcodeRule;
 
-/*
-typedef enum {
-    MOV = 0, CMP, ADD, SUB = 2, LEA = 4, CLR, NOT = 5, INC = 5, DEC = 5,
-    JMP = 9, BNE = 9, JSR = 9, RED = 12, PRN, RTS, STOP, INVALID
-} opcode;
-*/
 const OpcodeRule OPCODE_TABLE[] = {
-    {MOV, 0, 0, 2, {0, 1, 3}, 3, {1, 3}, 2},    /* mov */
-    {CMP, 1, 0, 2, {0, 1, 3}, 3, {0, 1, 3}, 3}, /* cmp */
-    {ADD, 2, 1, 2, {1, 3}, 2, {1, 3}, 2},       /* add */
-    {SUB, 2, 2, 2, {1, 3}, 2, {1, 3}, 2},       /* sub */
-    {LEA, 4, 0, 2, {1}, 1, {1, 3}, 2},          /* lea */
-    {CLR, 5, 1, 1, {}, 0, {1, 3}, 2},           /* clr */
-    {NOT, 5, 2, 1, {}, 0, {1, 3}, 2},           /* not */
-    {INC, 5, 3, 1, {}, 0, {1, 3}, 2},           /* inc */
-    {DEC, 5, 4, 1, {}, 0, {1, 3}, 2},           /* dec */
-    {JMP, 9, 1, 1, {}, 0, {1, 2}, 2},           /* jmp */
-    {BNE, 9, 2, 1, {}, 0, {1, 2}, 2},           /* bne */
-    {JSR, 9, 3, 1, {}, 0, {1, 2}, 2},           /* jsr */
-    {RED, 12, 0, 1, {}, 0, {1, 3}, 2},           /* red */
-    {PRN, 13, 0, 1, {}, 0, {0, 1, 3}, 3},        /* prn */
-    {RTS, 14, 0, 0, {}, 0, {}, 0},               /* rts */
-    {STOP, 15, 0, 0, {}, 0, {}, 0}               /* stop */
+    {MOV, 0, 0, 2, {0, 1, 3}, 3, {1, 3}, 2},    
+    {CMP, 1, 0, 2, {0, 1, 3}, 3, {0, 1, 3}, 3}, 
+    {ADD, 2, 1, 2, {1, 3}, 2, {1, 3}, 2},       
+    {SUB, 2, 2, 2, {1, 3}, 2, {1, 3}, 2},       
+    {LEA, 4, 0, 2, {1}, 1, {1, 3}, 2},          
+    {CLR, 5, 1, 1, {}, 0, {1, 3}, 2},           
+    {NOT, 5, 2, 1, {}, 0, {1, 3}, 2},           
+    {INC, 5, 3, 1, {}, 0, {1, 3}, 2},           
+    {DEC, 5, 4, 1, {}, 0, {1, 3}, 2},           
+    {JMP, 9, 1, 1, {}, 0, {1, 2}, 2},           
+    {BNE, 9, 2, 1, {}, 0, {1, 2}, 2},           
+    {JSR, 9, 3, 1, {}, 0, {1, 2}, 2},           
+    {RED, 12, 0, 1, {}, 0, {1, 3}, 2},           
+    {PRN, 13, 0, 1, {}, 0, {0, 1, 3}, 3},        
+    {RTS, 14, 0, 0, {}, 0, {}, 0},               
+    {STOP, 15, 0, 0, {}, 0, {}, 0}               
 };
 
 const int OPCODE_TABLE_SIZE = sizeof(OPCODE_TABLE) / sizeof(OPCODE_TABLE[0]);
@@ -665,7 +624,7 @@ int first_cycle(FILE* file) {
                 }
             }
             instruction ins;
-            parse_instruction(&ins, mod_line);  /*return value */
+            parse_instruction(&ins, mod_line);
             error = validate_instruction(&ins);
             if (error) {
                 return error;
@@ -684,33 +643,8 @@ int first_cycle(FILE* file) {
             IC += L;
             code_count++;
         }
-        /* need to think how to order the binary machine code (when iterating over the code) */
-            /* need to consider that there might be a opcodes which we cannot convert immediately only at round 2 */
-            /* struct of command might not be a good impl because there are lines like .data that need to be convert and are not command. */
-        /* a solution might be translating anything we can, if we cannot because it contains LABEL, leave it blank and at the second round */
-        /* fill it in order of the symbol table. can be a good idea to save the Length of the commands to not translate it again. */
-        /* TODO: how to translate assembly to binary data, add data structs accordingly to what written in the .docx */
-
-        /* if comment continue */
-        /* if הנחיה so  */
-            /* .data - allocate in the data image and increment DC */
-                /* if there is a label so the label gets DC before inc and inserted to the symbol table */
-            /* .string - allocate in the data image, each char gets a while word */
-                /* add \0 in the end of the string */
-                /* if there is a label , same as .data */
-            /* .entry - skip */
-            /* .extern - add to symbol table with the value 0 and continue */
-                /* ignore label */
-        /* if הוראה so */
-          /* create a table of symbols contains the symbol, his value and properties (ignore entry - take care in second round) */
-          /* try to create a struct of the command - if there is a label leave it to the next round */
-          /* estimate the size of the command and append the IC */
-          /* ARE also set at the next round */
-        /* think how to handle multiple errors (prabably a linked list of errors - line number, error, maybe params)  */
-        /* add a pretty print for errors */
     }
 
-    /* values are used for building object file */
     int i;
     size_t ICF;
     size_t DCF;
@@ -748,20 +682,9 @@ int first_cycle(FILE* file) {
     }
     
     return SUCCESS;
-
-    /* strip whitespaces */
-    /* write to files */
-    /* errors */
-    /* free memory */
-    /* split to files */
-    /* order the code */
 }
 
 int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
-/* if this is entry command look for the symbol table */
-/* iterate over the structs of commands. complete them if necessary (in case of a label) */
-/* create the actual bytes */
-/* create the files for each  */
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     int code_line_number = 0;
     int len;
@@ -881,5 +804,4 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
         }
         code_line_number++;
     }
-    /* TODO: Declare Externals and Entries to build the files */
 }

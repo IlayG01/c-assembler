@@ -5,6 +5,15 @@
 
 #define MINIMUM_ARGS 2
 
+/* TODO */
+/* strip whitespaces - between opcodes operands*/
+/* errors  + error handling - prob linked list */
+/* split to files */
+/* order the code - consts, efficiency, general order*/
+/* DOCS */
+/* write to files - hardcoded strings */
+/* Fix Warnings */
+/* main.c */
 
 int main(int argc, char* argv[]) {
     int i;
