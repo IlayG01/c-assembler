@@ -11,7 +11,7 @@ $(TARGET): $(SRC)
 # Tests targets for running a test with input file
 test:
 	chmod +x $(TARGET)
-	./$(TARGET) tests/input_files/a.as
+	./$(TARGET) tests/input_files/repetitive_macro.as tests/input_files/empty.as tests/input_files/maman_example.as tests/input_files/multiple_macros.as
 # Clean target for cleaning the generated files
 clean:
 	rm -f $(TARGET)
