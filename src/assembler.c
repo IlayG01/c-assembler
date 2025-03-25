@@ -20,7 +20,6 @@ int assemble(char* filename) {
     if (!file) {
         return FILE_NOT_EXIST;
     }
-
     result = first_cycle(file);
     if (SUCCESS != result) {
         return result;
@@ -43,6 +42,7 @@ const char* OPCODE_STRINGS[] = {
     "clr", "not", "inc", "dec", "jmp",
     "bne", "jsr", "red", "prn", "rts", "stop"
 };
+
 
 typedef struct {
     unsigned int E: 1;  /* always 0 */
@@ -78,7 +78,7 @@ typedef struct {
 } instruction;
 
 typedef struct {
-    size_t L;  /* 1/2/3 for code, othwise can be more */
+    size_t L;  /* 1/2/3 for code */
     size_t IC; /* for external file */
     int need_to_resolve;  /* to know for second round if needed to be resolved. */
     first_word first_word_val;
@@ -419,7 +419,7 @@ first_word generate_first_word(const instruction* instr) {
     } else if (instr->num_of_operands == 1) {
         first_word_val.src_address = 0;
         first_word_val.src_reg = 0;
-        first_word_val.dest_address = get_addressing_mode(instr->operands[1]);
+        first_word_val.dest_address = get_addressing_mode(instr->operands[0]);
         if (first_word_val.dest_address == 3) {
             first_word_val.dest_reg = instr->operands[0][1] - '0';
         }
@@ -498,6 +498,56 @@ void strip_whitespace(char *str) {
     str[i] = '\0'; /* Null-terminate the string */
 }
 
+void save_obj_file(machine_code* code, size_t code_count, data* data, size_t data_count, size_t ICF, size_t DCF) {
+    int j;
+    int i;
+    int line_number = 100;
+
+    printf("%6d %d\n", ICF-100, DCF);
+    for (i = 0; i < code_count; i++)
+    {
+        printf("%06d ", line_number++);
+        print_first_word_hex(&code[i].first_word_val);
+        for (j = 0; j < code[i].L-1; j++)
+        {
+            printf("%06d ", line_number++);
+            print_operand_hex(&code[i].operand_code[j]);
+        }
+    }
+    for (i = 0; i < data_count; i++)
+    {
+        printf("%06d ", line_number++);
+        printf("%06X\n", data[i].integer);
+    }
+}
+
+void print_first_word_hex(first_word* first_word) {
+    unsigned int value = 0;
+
+    value |= (first_word->E            & 0x1)      << 0;   
+    value |= (first_word->R            & 0x1)      << 1;   
+    value |= (first_word->A            & 0x1)      << 2;   
+    value |= (first_word->funct        & 0x1F)     << 3;   
+    value |= (first_word->dest_reg     & 0x7)      << 8;   
+    value |= (first_word->dest_address & 0x3)      << 11;  
+    value |= (first_word->src_reg      & 0x7)      << 13;  
+    value |= (first_word->src_address  & 0x3)      << 16;  
+    value |= (first_word->opcode_value & 0x3F)     << 18;  
+
+    printf("%06X\n", value & 0xFFFFFF);
+}
+
+void print_operand_hex(operand* operand) {
+    unsigned int value = 0;
+
+    value |= (operand->E        & 0x1)       << 0;   
+    value |= (operand->R        & 0x1)       << 1;   
+    value |= (operand->A        & 0x1)       << 2;   
+    value |= (operand->integer  & 0x1FFFFF)  << 3;   
+
+    printf("%06X\n", value & 0xFFFFFF);
+}
+
 int first_cycle(FILE* file) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     int len;
@@ -511,8 +561,8 @@ int first_cycle(FILE* file) {
     size_t data_count = 0;
     size_t code_count = 0;
     /* TODO: add error detection */
-    while (len = fgets(line, sizeof(line), file)) {
-        if (len > 80) {
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (strlen(line) > 80) {
             return LINE_TOO_LONG;
         }
         strip_whitespace(line);
@@ -558,7 +608,7 @@ int first_cycle(FILE* file) {
             if (error) {
                 return error;
             }
-            DC += ((data_count - data_count_temp)*WORD_SIZE);
+            DC += (data_count - data_count_temp);
         }
 
         else if (is_entry_instruction(mod_line)) {
@@ -593,8 +643,8 @@ int first_cycle(FILE* file) {
             } else {
                 code[code_count].operand_code = (operand*)malloc(sizeof(operand) * (L-1));
             }
-            code->IC = IC;
-            code->L = L;
+            code[code_count].IC = IC;
+            code[code_count].L = L;
             int resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
             code[code_count].need_to_resolve = resolved != (L - 1);
             IC += L;
@@ -641,6 +691,8 @@ int first_cycle(FILE* file) {
     
 
     second_cycle(file, label_table, label_count, code, code_count);
+    
+    save_obj_file(code, code_count, data, data_count, ICF, DCF);
 
     for (i = 0; i < label_count; i++)
     {
@@ -653,7 +705,7 @@ int first_cycle(FILE* file) {
             free(code[i].operand_code);
         }
     }
-    
+    return SUCCESS;
 
     /* for symbol in symbol_table: */
     /*     if data: */
@@ -678,7 +730,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     int code_line_number = 0;
     int len;
-    int i;
+    int i, j;
     int error;
 
     rewind(file);
@@ -725,6 +777,8 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
             int address_mode;
             int operand_code_index = 0;
             int label_type;
+            char* label_name;
+
             parse_instruction(&instr, mod_line);
             for (i = 0; i < instr.num_of_operands; i++) {
                 address_mode = get_addressing_mode(instr.operands[i]);
@@ -735,16 +789,22 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                 if (address_mode == 3) {
                     continue;  /* no additional word for reg address */
                 }
-                if (!is_label_exist(instr.operands[i], label_table, label_count)) {
+
+                label_name = instr.operands[i];
+                if (address_mode == 2) {
+                    /* may contain & as prefix */
+                    label_name++;
+                }
+                if (!is_label_exist(label_name, label_table, label_count)) {
                     return LABEL_DOES_NOT_EXIST;
                 }
 
                 int label_address;
-                for (i = 0; i < label_count; i++)
+                for (j = 0; j < label_count; j++)
                 {
-                    if (!strcmp(instr.operands[i], label_table[i].label_name)) {
-                        label_address = label_table[i].address;
-                        label_type = label_table[i].label_type;
+                    if (!strcmp(label_name, label_table[j].label_name)) {
+                        label_address = label_table[j].address;
+                        label_type = label_table[j].label_type;
                         break;
                     }
                 }
@@ -762,12 +822,13 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                     if (address_mode == 2) {
                         code[code_line_number].operand_code[operand_code_index].A = 1;                        
                         code[code_line_number].operand_code[operand_code_index].R = 0;
+                        code[code_line_number].operand_code[operand_code_index].integer = label_address - code[code_line_number].IC;
                     } else {
                         /* address mode == 1 */
                         code[code_line_number].operand_code[operand_code_index].A = 0;
                         code[code_line_number].operand_code[operand_code_index].R = 1;
+                        code[code_line_number].operand_code[operand_code_index].integer = label_address;
                     }
-                    code[code_line_number].operand_code[operand_code_index].integer = label_address;
                 }
                 operand_code_index++;
             }
