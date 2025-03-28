@@ -7,13 +7,14 @@
 
 #define MINIMUM_ARGS 2
 
-/* TODO */
+/* TODOs */
 /* strip whitespaces - between opcodes operands*/
-/* errors  + error handling - prob linked list */
-/* split to files */
+/* walkthrough the error handling in the assebler flow - only fatal errors should stop the program(files access), other should be printed and continue with a flag to not write output files */
+/* move out utils functions into utils module */
 /* order the code - consts, efficiency, general order*/
-/* DOCS */
+/* docs at assembler.c */
 /* Fix Warnings */
+/* Add examples for input and output files of the program (images), working example and failures with appropriate errors prints */
 /* main.c */
 
 int main(int argc, char* argv[]) {
@@ -31,7 +32,7 @@ int main(int argc, char* argv[]) {
     }
     /* assemble files */
     for (i = 1; i < argc; i++) {
-        replace_extension(argv[i], am_file, ".am");
+        copy_filename_with_different_extension(argv[i], am_file, ".am");
         assemble(am_file);
     }
 

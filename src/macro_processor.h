@@ -9,6 +9,6 @@ void trim_whitespace(char* str);
 void strip_newline(char* str);
 void add_macro(const char* name);
 void add_line_to_macro(int macro_index, const char* line);
-void clear_macro_table();
+void initialize_macro_table();
 
 #endif

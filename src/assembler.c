@@ -17,7 +17,7 @@
 
 int assemble(char* filename) {
     int result;
-    printf("assemble: %s", filename);
+
     result = first_cycle(filename);
     return result;
 }
@@ -464,8 +464,7 @@ void save_obj_file(const char* filename, machine_code* code, size_t code_count, 
     int line_number = 100;
     int i, j;
 
-    replace_extension(filename, obj_filename, ".obj");
-    printf("obj: %s", obj_filename);
+    copy_filename_with_different_extension(filename, obj_filename, ".obj");
     file = fopen(obj_filename, "w"); /* TODO: util function to open files safely */
 
     fprintf(file, "%7ld %ld\n", ICF-100, DCF);
@@ -493,8 +492,7 @@ void save_entries_file(const char* filename, label_element* label_table, size_t 
     FILE* file = NULL;
     int i;
 
-    replace_extension(filename, ent_filename, ".ent");
-    printf("ent: %s", ent_filename);
+    copy_filename_with_different_extension(filename, ent_filename, ".ent");
     file = fopen(ent_filename, "w"); /* TODO: util function to open files safely */
 
     for (i = 0; i < label_count; i++) {
@@ -511,8 +509,7 @@ void save_externals_file(const char* filename, external_info* externals, size_t 
     FILE* file = NULL;
     int i;
 
-    replace_extension(filename, ext_filename, ".ext");
-    printf("ect: %s", ext_filename);
+    copy_filename_with_different_extension(filename, ext_filename, ".ext");
     file = fopen(ext_filename, "w"); /* TODO: util function to open files safely */
 
     for (i = 0; i < externals_count; i++) {
@@ -566,6 +563,7 @@ int first_cycle(char* filename) {
     FILE *file = fopen(filename, "r");
 
     if (!file) {
+        printf("Error: The specified file (%s) does not exist.\n", filename);
         return FILE_NOT_EXIST;
     }
     
@@ -587,7 +585,7 @@ int first_cycle(char* filename) {
             is_line_with_label = 1;
             get_label(line, label);  /* can be wrong label so raise error */
             if (!is_valid_label(label)) {
-                return INVALID_LABEL;
+                printf("Error: Invalid label(%s)  encountered.\n", label);
             }
         }
 
@@ -598,13 +596,14 @@ int first_cycle(char* filename) {
         strip_whitespace(mod_line);
 
         if (is_line_with_label && is_label_exist(label, label_table, label_count)) {
-            return LABEL_ALREADY_EXIST;
+            printf("Error: Label (%s) already exists.\n", label);
         }
 
         if (is_data_instruction(mod_line) || is_string_instruction(mod_line)) {
             if (is_line_with_label) {
                 error = add_label_to_symbol_table(&label_table, &label_count, label, DC, data_label);
                 if (error) {
+                    printf("Error: Couldn't add label (%s) to table.\n", label);
                     return error;
                 }
             }
@@ -615,6 +614,7 @@ int first_cycle(char* filename) {
                 error = translate_string(data, &data_count, mod_line);
             }
             if (error) {
+                printf("Error: Couldn't translate data/string. Line (%s)\n", mod_line);
                 return error;
             }
             DC += (data_count - data_count_temp);
@@ -628,6 +628,7 @@ int first_cycle(char* filename) {
             token = strtok(NULL, " \t"); /* Get the next token, which is the name */
             error = add_label_to_symbol_table(&label_table, &label_count, token, IC, extern_label);
             if (error) {
+                printf("Error: Couldn't add label (%s) to symbol table.\n", token);
                 return error;
             }
         }
@@ -636,6 +637,7 @@ int first_cycle(char* filename) {
             if (is_line_with_label) {
                 error = add_label_to_symbol_table(&label_table, &label_count, label, IC, code_label);
                 if (error) {
+                    printf("Error: Couldn't add label (%s) to symbol table.\n", label);
                     return error;
                 }
             }
@@ -643,6 +645,7 @@ int first_cycle(char* filename) {
             parse_instruction(&ins, mod_line);
             error = validate_instruction(&ins);
             if (error) {
+                printf("Error: Couldn't validate instruction (%s).\n", ins);
                 return error;
             }
 
