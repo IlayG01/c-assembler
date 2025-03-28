@@ -2,11 +2,14 @@
  * Macro Processor - C89 compliant
  * Processes files with macro definitions and usage
  */
+#include "macro_processor.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+
+#include "utils.h"
 
 #define MAX_LINE_LENGTH 81        /* 80 chars + null terminator */
 #define MAX_MACROS 1000
@@ -24,40 +27,11 @@ typedef struct {
 Macro macro_table[MAX_MACROS];
 int macro_count = 0;
 
-/* Function prototypes */
-int process_file(const char* input_file);
-int is_valid_macro_name(const char* name);
-int is_reserved_word(const char* name);
-int find_macro(const char* name);
-void trim_whitespace(char* str);
-void strip_newline(char* str);
-void add_macro(const char* name);
-void add_line_to_macro(int macro_index, const char* line);
-void clear_macro_table();
-
-int main(int argc, char* argv[]) {
-    int i;
-    
-    if (argc < 2) {
-        printf("Usage: %s <file1> [file2] [file3] ...\n", argv[0]);
-        return 1;
-    }
-    
-    /* Process each file from command line arguments */
-    for (i = 1; i < argc; i++) {
-        if (process_file(argv[i]) != 0) {
-            printf("Error processing file: %s\n", argv[i]);
-        }
-    }
-    
-    return 0;
-}
-
 /*
  * Process a single file
  * Returns 0 on success, non-zero on error
  */
-int process_file(const char* input_file) {
+int macro_process_file(const char* input_file) {
     FILE* in_file;
     FILE* out_file;
     char line[MAX_LINE_LENGTH];
@@ -77,8 +51,7 @@ int process_file(const char* input_file) {
     }
     
     /* Create output file name with .am extension */
-    strcpy(output_file, input_file);
-    strcat(output_file, ".am");
+    replace_extension(input_file, output_file, ".am");
     
     out_file = fopen(output_file, "w");
     if (out_file == NULL) {

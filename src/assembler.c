@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "utils.h"
 #include "consts.h"
 
 #define MAX_BUF_SIZE 100
@@ -16,14 +17,9 @@
 
 int assemble(char* filename) {
     int result;
-    FILE *file = fopen(filename, "r");
-    if (!file) {
-        return FILE_NOT_EXIST;
-    }
-    result = first_cycle(file);
-    if (SUCCESS != result) {
-        return result;
-    }
+    printf("assemble: %s", filename);
+    result = first_cycle(filename);
+    return result;
 }
 
 typedef enum {
@@ -463,9 +459,14 @@ void strip_whitespace(char *str) {
 }
 
 void save_obj_file(const char* filename, machine_code* code, size_t code_count, data* data, size_t data_count, size_t ICF, size_t DCF) {
-    FILE* file = fopen(filename, "w");
+    char obj_filename[FILENAME_MAX];
+    FILE* file = NULL;
     int line_number = 100;
     int i, j;
+
+    replace_extension(filename, obj_filename, ".obj");
+    printf("obj: %s", obj_filename);
+    file = fopen(obj_filename, "w"); /* TODO: util function to open files safely */
 
     fprintf(file, "%7ld %ld\n", ICF-100, DCF);
     for (i = 0; i < code_count; i++)
@@ -488,8 +489,13 @@ void save_obj_file(const char* filename, machine_code* code, size_t code_count, 
 }
 
 void save_entries_file(const char* filename, label_element* label_table, size_t label_count) {
-    FILE* file = fopen(filename, "w");
+    char ent_filename[FILENAME_MAX];
+    FILE* file = NULL;
     int i;
+
+    replace_extension(filename, ent_filename, ".ent");
+    printf("ent: %s", ent_filename);
+    file = fopen(ent_filename, "w"); /* TODO: util function to open files safely */
 
     for (i = 0; i < label_count; i++) {
         if (label_table[i].label_type & entry_label) {
@@ -501,8 +507,13 @@ void save_entries_file(const char* filename, label_element* label_table, size_t 
 }
 
 void save_externals_file(const char* filename, external_info* externals, size_t externals_count) {
-    FILE* file = fopen(filename, "w");
+    char ext_filename[FILENAME_MAX];
+    FILE* file = NULL;
     int i;
+
+    replace_extension(filename, ext_filename, ".ext");
+    printf("ect: %s", ext_filename);
+    file = fopen(ext_filename, "w"); /* TODO: util function to open files safely */
 
     for (i = 0; i < externals_count; i++) {
         fprintf(file, "%s %07d\n", externals[i].label_name, externals[i].address);
@@ -538,7 +549,7 @@ void write_operand_hex_to_file(FILE* file, operand* operand) {
     fprintf(file, "%06X\n", value & 0xFFFFFF);
 }
 
-int first_cycle(FILE* file) {
+int first_cycle(char* filename) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     int len;
     int error;
@@ -552,6 +563,11 @@ int first_cycle(FILE* file) {
     size_t data_count = 0;
     size_t code_count = 0;
     size_t externals_count = 0;
+    FILE *file = fopen(filename, "r");
+
+    if (!file) {
+        return FILE_NOT_EXIST;
+    }
     
     /* TODO: add error detection */
     while (fgets(line, sizeof(line), file) != NULL) {
@@ -660,9 +676,9 @@ int first_cycle(FILE* file) {
 
     second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
 
-    save_obj_file("file.obj", code, code_count, data, data_count, ICF, DCF);
-    save_entries_file("file.ent", label_table, label_count);
-    save_externals_file("file.ext", externals, externals_count);
+    save_obj_file(filename, code, code_count, data, data_count, ICF, DCF);
+    save_entries_file(filename, label_table, label_count);
+    save_externals_file(filename, externals, externals_count);
     
 
     for (i = 0; i < label_count; i++)
