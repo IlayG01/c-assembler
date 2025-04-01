@@ -1,5 +1,4 @@
-#ifndef MACRO_PROCESSOR_H
-#define MACRO_PROCESSOR_H
+#pragma once
 
 int macro_process_file(const char* input_file);
 int is_valid_macro_name(const char* name);
@@ -10,5 +9,3 @@ void strip_newline(char* str);
 void add_macro(const char* name);
 void add_line_to_macro(int macro_index, const char* line);
 void initialize_macro_table();
-
-#endif

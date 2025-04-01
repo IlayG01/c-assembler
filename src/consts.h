@@ -1,3 +1,8 @@
+#pragma once
+
+#include "data_structs.h"
+
+
 enum ReturnCodes {
     SUCCESS = 0,
     NO_INPUT_FILES,
@@ -14,3 +19,9 @@ enum ReturnCodes {
     LABEL_DOES_NOT_EXIST,
     INVALID_JUMP_TO_EXTERNAL_ADDRESS
 };
+
+extern const char* OPCODE_STRINGS[16];
+
+extern const OpcodeRule OPCODE_TABLE[16];
+
+extern const int OPCODE_TABLE_SIZE;

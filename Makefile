@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -Wall -pedantic -ansi -g
 
 # Source files for both projects
-SRC = src/main.c src/assembler.c src/macro_processor.c src/utils.c
+SRC = src/main.c src/assembler.c src/macro_processor.c src/utils.c src/consts.c
 
 # Object files
 OBJ = $(SRC:.c=.o)

@@ -1,7 +1,6 @@
 #include "assembler.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <ctype.h>
 #include <string.h>
 
@@ -10,90 +9,12 @@
 
 #define MAX_BUF_SIZE 100
 #define MAX_INSTRUCTIONS 1000
-#define MAX_LABEL_LENGTH 31
-#define MAX_OPERANDS 2
-#define WORD_SIZE 3  /* 24/8 bytes*/
+#define LINE_MAX_SIZE 80
 
 
-int assemble(char* filename) {
-    int result;
-
-    result = first_cycle(filename);
-    return result;
+void assemble(char* filename) {
+    first_cycle(filename);
 }
-
-typedef enum {
-    MOV, CMP, ADD, SUB, LEA, CLR, NOT, INC, DEC,
-    JMP, BNE, JSR, RED, PRN, RTS, STOP, INVALID
-} opcode;
-
-/* Mapping opcodes from strings to enum */
-const char* OPCODE_STRINGS[] = {
-    "mov", "cmp", "add", "sub", "lea",
-    "clr", "not", "inc", "dec", "jmp",
-    "bne", "jsr", "red", "prn", "rts", "stop"
-};
-
-
-typedef struct {
-    unsigned int E: 1;  /* always 0 */
-    unsigned int R: 1;  /* always 0 */
-    unsigned int A: 1;  /* always 1 */
-    unsigned int funct: 5;
-    unsigned int dest_reg: 3;
-    unsigned int dest_address: 2;
-    unsigned int src_reg: 3;
-    unsigned int src_address: 2;
-    unsigned int opcode_value: 6;
-} first_word;
-
-
-typedef struct {
-    unsigned int E: 1;
-    unsigned int R: 1;
-    unsigned int A: 1;
-    unsigned int integer: 21;
-} operand;
-
-typedef struct {
-    union {
-        int integer: 24;
-        unsigned int ascii: 24;
-    } value;
-} data;
-
-typedef struct {
-    opcode opcode;
-    size_t num_of_operands;
-    char operands[MAX_OPERANDS][MAX_LABEL_LENGTH];
-} instruction;
-
-typedef struct {
-    size_t L;  /* 1/2/3 for code */
-    size_t IC; /* for external file */
-    int need_to_resolve;  /* to know for second round if needed to be resolved. */
-    first_word first_word_val;
-    operand* operand_code;
-} machine_code;
-
-typedef enum {
-    data_label = 0x1,
-    entry_label = 0x10,
-    extern_label = 0x100,
-    code_label = 0x1000
-} label_options;
-
-typedef struct {
-    int address;
-    char *label_name;
-    /* int assembly_line; */
-    label_options label_type;
-} label_element;
-
-typedef struct {
-    int address;
-    char *label_name;
-} external_info;
 
 /* Function to check if a label is valid */
 int is_valid_label(const char *label) {
@@ -251,7 +172,7 @@ void parse_instruction(instruction* instr, const char* line) {
     }
 
     /* Extract operands */
-    while ((token = strtok(NULL, " ,")) && i < MAX_OPERANDS) {
+    while (i < MAX_OPERANDS && (token = strtok(NULL, " ,"))) {
         strcpy(instr->operands[i], token);
         instr->num_of_operands++;
         i++;
@@ -262,37 +183,6 @@ void parse_instruction(instruction* instr, const char* line) {
     }
 }
 
-typedef struct {
-    opcode opcode;
-    int opcode_value;
-    int funct;
-    int num_of_operands;
-    int valid_source_modes[3];  /* Allowed source operand addressing modes */
-    int num_source_modes;
-    int valid_dest_modes[3];    /* Allowed destination operand addressing modes */
-    int num_dest_modes;
-} OpcodeRule;
-
-const OpcodeRule OPCODE_TABLE[] = {
-    {MOV, 0, 0, 2, {0, 1, 3}, 3, {1, 3}, 2},    
-    {CMP, 1, 0, 2, {0, 1, 3}, 3, {0, 1, 3}, 3}, 
-    {ADD, 2, 1, 2, {1, 3}, 2, {1, 3}, 2},       
-    {SUB, 2, 2, 2, {1, 3}, 2, {1, 3}, 2},       
-    {LEA, 4, 0, 2, {1}, 1, {1, 3}, 2},          
-    {CLR, 5, 1, 1, {0}, 0, {1, 3}, 2},           
-    {NOT, 5, 2, 1, {0}, 0, {1, 3}, 2},           
-    {INC, 5, 3, 1, {0}, 0, {1, 3}, 2},           
-    {DEC, 5, 4, 1, {0}, 0, {1, 3}, 2},           
-    {JMP, 9, 1, 1, {0}, 0, {1, 2}, 2},           
-    {BNE, 9, 2, 1, {0}, 0, {1, 2}, 2},           
-    {JSR, 9, 3, 1, {0}, 0, {1, 2}, 2},           
-    {RED, 12, 0, 1, {0}, 0, {1, 3}, 2},           
-    {PRN, 13, 0, 1, {0}, 0, {0, 1, 3}, 3},        
-    {RTS, 14, 0, 0, {0}, 0, {0}, 0},               
-    {STOP, 15, 0, 0, {0}, 0, {0}, 0}               
-};
-
-const int OPCODE_TABLE_SIZE = sizeof(OPCODE_TABLE) / sizeof(OPCODE_TABLE[0]);
 
 /* Identify the addressing mode of an operand */
 int get_addressing_mode(const char* operand) {
@@ -549,9 +439,10 @@ void save_externals_file(const char* filename, external_info* externals, size_t 
     fclose(file);
 }
 
-int first_cycle(char* filename) {
+void first_cycle(char* filename) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
-    int error;
+    int last_error;
+    int is_code_with_errors = 0;
     size_t IC = 100;
     size_t DC = 0;
     machine_code code[MAX_INSTRUCTIONS];
@@ -562,7 +453,6 @@ int first_cycle(char* filename) {
     size_t data_count = 0;
     size_t code_count = 0;
     size_t externals_count = 0;
-    FILE *file = fopen(filename, "r");
     char label[MAX_LABEL_LENGTH + 1] = {0};
     int is_line_with_label = 0;
     char* mod_line;
@@ -574,16 +464,22 @@ int first_cycle(char* filename) {
     int resolved;
     char* token;
     int L;
+    int line_number = 0;
+    FILE *file;
 
+    file = fopen(filename, "r");
     if (!file) {
         printf("Error: The specified file (%s) does not exist.\n", filename);
-        return FILE_NOT_EXIST;
+        return;
     }
     
     /* TODO: add error detection */
     while (fgets(line, sizeof(line), file) != NULL) {
-        if (strlen(line) > 80) {
-            return LINE_TOO_LONG;
+        line_number++;
+        if (strlen(line) > LINE_MAX_SIZE) {
+            printf("Error: Line number: %d too long", line_number);
+            is_code_with_errors = 1;
+            continue;
         }
         strip_whitespace(line);
 
@@ -597,7 +493,11 @@ int first_cycle(char* filename) {
             get_label(line, label);  /* can be wrong label so raise error */
             if (!is_valid_label(label)) {
                 printf("Error: Invalid label(%s)  encountered.\n", label);
+                is_code_with_errors = 1;
+                continue;
             }
+        } else {
+            is_line_with_label = 0;
         }
 
         mod_line = line;
@@ -608,25 +508,29 @@ int first_cycle(char* filename) {
 
         if (is_line_with_label && is_label_exist(label, label_table, label_count)) {
             printf("Error: Label (%s) already exists.\n", label);
+            is_code_with_errors = 1;
+            continue;
         }
 
         if (is_data_instruction(mod_line) || is_string_instruction(mod_line)) {
             if (is_line_with_label) {
-                error = add_label_to_symbol_table(&label_table, &label_count, label, DC, data_label);
-                if (error) {
+                last_error = add_label_to_symbol_table(&label_table, &label_count, label, DC, data_label);
+                if (last_error) {
                     printf("Error: Couldn't add label (%s) to table.\n", label);
-                    return error;
+                    is_code_with_errors = 1;
+                    continue;
                 }
             }
             data_count_temp = data_count;
             if (is_data_instruction(mod_line)) {
-                error = translate_data(data, &data_count, mod_line);
+                last_error = translate_data(data, &data_count, mod_line);
             } else {
-                error = translate_string(data, &data_count, mod_line);
+                last_error = translate_string(data, &data_count, mod_line);
             }
-            if (error) {
+            if (last_error) {
                 printf("Error: Couldn't translate data/string. Line (%s)\n", mod_line);
-                return error;
+                is_code_with_errors = 1;
+                continue;
             }
             DC += (data_count - data_count_temp);
         }
@@ -637,26 +541,29 @@ int first_cycle(char* filename) {
         else if (is_extern_instruction(mod_line)) {
             token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
             token = strtok(NULL, " \t"); /* Get the next token, which is the name */
-            error = add_label_to_symbol_table(&label_table, &label_count, token, IC, extern_label);
-            if (error) {
+            last_error = add_label_to_symbol_table(&label_table, &label_count, token, IC, extern_label);
+            if (last_error) {
                 printf("Error: Couldn't add label (%s) to symbol table.\n", token);
-                return error;
+                is_code_with_errors = 1;
+                continue;
             }
         }
         else {
             /* this is an instruction! */
             if (is_line_with_label) {
-                error = add_label_to_symbol_table(&label_table, &label_count, label, IC, code_label);
-                if (error) {
+                last_error = add_label_to_symbol_table(&label_table, &label_count, label, IC, code_label);
+                if (last_error) {
                     printf("Error: Couldn't add label (%s) to symbol table.\n", label);
-                    return error;
+                    is_code_with_errors = 1;
+                    continue;
                 }
             }
             parse_instruction(&ins, mod_line);
-            error = validate_instruction(&ins);
-            if (error) {
+            last_error = validate_instruction(&ins);
+            if (last_error) {
                 printf("Error: Couldn't validate instruction (%s).\n", line);
-                return error;
+                is_code_with_errors = 1;
+                continue;
             }
 
             L = calculate_number_of_words(&ins);
@@ -674,21 +581,22 @@ int first_cycle(char* filename) {
         }
     }
 
-    ICF = IC;
-    DCF = DC;
-    for (i = 0; i < label_count; i++)
-    {
-        if (label_table[i].label_type == data_label) {
-            label_table[i].address += ICF;
+    if (!is_code_with_errors) {
+        ICF = IC;
+        DCF = DC;
+        for (i = 0; i < label_count; i++)
+        {
+            if (label_table[i].label_type == data_label) {
+                label_table[i].address += ICF;
+            }
         }
-    }
-    
-
-    error = second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
-    if (!error) {
-        save_obj_file(filename, code, code_count, data, data_count, ICF, DCF);
-        save_entries_file(filename, label_table, label_count);
-        save_externals_file(filename, externals, externals_count);
+        
+        last_error = second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
+        if (!last_error) {
+            save_obj_file(filename, code, code_count, data, data_count, ICF, DCF);
+            save_entries_file(filename, label_table, label_count);
+            save_externals_file(filename, externals, externals_count);
+        }
     }
 
     for (i = 0; i < label_count; i++)
@@ -706,8 +614,6 @@ int first_cycle(char* filename) {
     {
         free(externals[i].label_name);
     }
-    
-    return SUCCESS;
 }
 
 int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
@@ -717,6 +623,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
     char* label_copy;
     char label[MAX_LABEL_LENGTH + 1] = {0};
     char* mod_line;
+    int is_code_with_errors = 0;
 
     rewind(file);
     while (fgets(line, sizeof(line), file) != NULL) {
@@ -753,7 +660,10 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
             if (found) {
                 continue;
             }
-            return ENTRY_LABEL_DOESNT_EXIST;
+            
+            printf("Error: Entry Label (%s) doesn't exists.\n", token);
+            is_code_with_errors = 1;
+            continue;
         }
 
         if (code[code_line_number].need_to_resolve) {
@@ -781,7 +691,9 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                     label_name++;
                 }
                 if (!is_label_exist(label_name, label_table, label_count)) {
-                    return LABEL_DOES_NOT_EXIST;
+                    printf("Error: Label (%s) doesn't exists.\n", label_name);
+                    is_code_with_errors = 1;
+                    continue;
                 }
 
                 for (j = 0; j < label_count; j++)
@@ -795,13 +707,17 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
 
                 if (label_type == extern_label) {
                     if (address_mode == 2) {
-                        return INVALID_JUMP_TO_EXTERNAL_ADDRESS;
+                        printf("Error: Invalid jump to external address (%s).\n", label_name);
+                        is_code_with_errors = 1;
+                        continue;
                     }
 
                     externals[*externals_count].address = code[code_line_number].IC + 1 + operand_code_index;
                     label_copy = (char*)malloc(strlen((label_name)) + 1);
                     if (!label_copy) {
-                        return MEMORY_ALLOCATION_FAILED;
+                        printf("Error: Memory allocation failed.\n");
+                        is_code_with_errors = 1;
+                        continue;
                     }
                     strcpy(label_copy, label_name);
                     externals[*externals_count].label_name = label_copy;
@@ -831,5 +747,5 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
         code_line_number++;
     }
 
-    return SUCCESS;
+    return is_code_with_errors;
 }
