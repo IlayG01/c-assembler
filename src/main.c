@@ -13,6 +13,7 @@
 /* Fix Warnings in pre processor */
 /* Add examples for input and output files of the program (images), working example and failures with appropriate errors prints */
 /* update main.c */
+/* Solve TODO comments in code */
 
 int main(int argc, char* argv[]) {
     int i;

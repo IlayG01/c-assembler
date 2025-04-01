@@ -452,7 +452,7 @@ void first_cycle(char* filename) {
     while (fgets(line, sizeof(line), file) != NULL) {
         line_number++;
         if (strlen(line) > LINE_MAX_SIZE) {
-            printf("Error: Line number: %d too long", line_number);
+            printf("Error: Line number: (%d) too long.\n", line_number);
             is_code_with_errors = 1;
             continue;
         }
@@ -467,7 +467,7 @@ void first_cycle(char* filename) {
             is_line_with_label = 1;
             get_label(line, label);  /* can be wrong label so raise error */
             if (!is_valid_label(label)) {
-                printf("Error: Invalid label(%s)  encountered.\n", label);
+                printf("Error: Invalid label (%s) encountered.\n", label);
                 is_code_with_errors = 1;
                 continue;
             }
