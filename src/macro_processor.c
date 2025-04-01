@@ -29,11 +29,11 @@ Macro macro_table[MAX_MACROS];
 int macro_count = 0;
 
 /* Process a single file, returns 0 on success, non-zero on error (not logical/parsing error but resource error which couldn't be handled differently) */
-int macro_process_file(const char* input_file) {
+int macro_process_file(const char* input_as_file) {
     FILE* in_file;
     FILE* out_file;
     char line[MAX_LINE_LENGTH];
-    char output_file[FILENAME_MAX];
+    char output_am_file[FILENAME_MAX];
     char macro_name[MAX_MACRO_NAME_LENGTH];
     int in_macro_def = 0;
     int current_macro_index = -1;
@@ -42,18 +42,18 @@ int macro_process_file(const char* input_file) {
     initialize_macro_table();
     
     /* Check if the file exists */
-    in_file = fopen(input_file, "r");
+    in_file = fopen(input_as_file, "r");
     if (in_file == NULL) {
-        printf("File not found: %s\n", input_file);
+        printf("File not found: %s\n", input_as_file);
         return 1;
     }
     
     /* Create output file name with .am extension */
-    copy_filename_with_different_extension(input_file, output_file, ".am");
+    copy_filename_with_different_extension(input_as_file, output_am_file, ".am");
     
-    out_file = fopen(output_file, "w");
+    out_file = fopen(output_am_file, "w");
     if (out_file == NULL) {
-        printf("Could not create output file: %s\n", output_file);
+        printf("Could not create output file: %s\n", output_am_file);
         fclose(in_file);
         return 1;
     }

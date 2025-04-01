@@ -19,16 +19,18 @@
 
 int main(int argc, char* argv[]) {
     int i;
+    char as_file[FILENAME_MAX];
     char am_file[FILENAME_MAX];
     
     if (argc < NO_INPUT_FILES) {
-        printf("Usage: %s <file1.as> [file2.as] [file3.as] ...\n", argv[0]);
+        printf("Usage: %s <file1> [file2] [file3] ...\n", argv[0]);
         return NO_INPUT_FILES;
     }
     
     /* macro process files*/
     for (i = 1; i < argc; i++) {
-        macro_process_file(argv[i]);
+        copy_filename_with_different_extension(argv[i], as_file, ".as");
+        macro_process_file(as_file);
     }
     /* assemble files */
     for (i = 1; i < argc; i++) {
