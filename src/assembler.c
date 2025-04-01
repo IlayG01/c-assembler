@@ -59,7 +59,7 @@ typedef struct {
     union {
         int integer: 24;
         unsigned int ascii: 24;
-    };
+    } value;
 } data;
 
 typedef struct {
@@ -98,6 +98,7 @@ typedef struct {
 /* Function to check if a label is valid */
 int is_valid_label(const char *label) {
     int len = strlen(label);
+    int i;
 
     /* Check length constraint */
     if (len == 0 || len > MAX_LABEL_LENGTH) {
@@ -110,7 +111,6 @@ int is_valid_label(const char *label) {
     }
 
     /* Check remaining characters (must be alphanumeric) */
-    int i;
     for (i = 1; i < len; i++) {
         if (!isalnum(label[i])) {
             return 0;
@@ -161,6 +161,7 @@ int is_string_instruction(char* ins) {
 }
 
 int add_label_to_symbol_table(label_element** label_table, size_t* label_count, char* label, size_t address, label_options label_type) {
+    char* label_copy;
     size_t current_label_count = *label_count;
     /* Allocate memory for the new label table (increase the size) */
     label_element* new_table = realloc(*label_table, (current_label_count + 1) * sizeof(label_element));
@@ -176,7 +177,7 @@ int add_label_to_symbol_table(label_element** label_table, size_t* label_count, 
     (*label_table)[current_label_count].label_type = label_type;
 
     /* Allocate memory for the label name and copy it */
-    char* label_copy = (char*)malloc(strlen((label)) + 1);
+    label_copy = (char*)malloc(strlen((label)) + 1);
     if (!label_copy) {
         return MEMORY_ALLOCATION_FAILED;
     }
@@ -195,26 +196,26 @@ int translate_data(data* data, size_t* count, char* line) {
     while ((token = strtok(NULL, " ,")) != NULL) {
         int value = atoi(token); /* Convert the token into an integer */
 
-        data[*count].integer = value; /* Use the `data` struct's integer field */
+        data[*count].value.integer = value; /* Use the `data` struct's integer field */
         (*count)++;
     }
     return 0; /* Success */
 }
 
 int translate_string(data* data, size_t* count, char* line) {
+    size_t str_len;
+    int i;
     char *token = strtok(line, " ,"); /* Tokenize by spaces and commas */
     if (!token || strcmp(token, ".string")) return 1; /* Ensure it's a `.string` directive */
 
     token = strtok(NULL, "\""); /* Get the string inside quotes */
 
-    size_t str_len = strlen(token);
-
-    size_t i;
+    str_len = strlen(token);
     for (i = 0; i < str_len; i++) {
-        data[*count].ascii = (int)token[i]; /* Use the `data` struct's integer field */
+        data[*count].value.ascii = (int)token[i]; /* Use the `data` struct's integer field */
         (*count)++;
     }
-    data[*count].ascii = 0; /* null */
+    data[*count].value.ascii = 0; /* null */
     (*count)++;
 
     return 0; /* Success */
@@ -231,13 +232,14 @@ opcode get_opcode(const char* str) {
 }
 
 void parse_instruction(instruction* instr, const char* line) {
-    instr->num_of_operands = 0;
-
     char buffer[MAX_BUF_SIZE];
-    strcpy(buffer, line);  /* Copy to modify safely */
-    char* token = strtok(buffer, " ,");  /* First token (opcode) */
-    
+    char* token;
+    int i = 0;
 
+    instr->num_of_operands = 0;
+    
+    strcpy(buffer, line);  /* Copy to modify safely */
+    token = strtok(buffer, " ,");  /* First token (opcode) */
     if (!token) {
         instr->opcode = INVALID;
         return;
@@ -249,7 +251,6 @@ void parse_instruction(instruction* instr, const char* line) {
     }
 
     /* Extract operands */
-    int i = 0;
     while ((token = strtok(NULL, " ,")) && i < MAX_OPERANDS) {
         strcpy(instr->operands[i], token);
         instr->num_of_operands++;
@@ -278,17 +279,17 @@ const OpcodeRule OPCODE_TABLE[] = {
     {ADD, 2, 1, 2, {1, 3}, 2, {1, 3}, 2},       
     {SUB, 2, 2, 2, {1, 3}, 2, {1, 3}, 2},       
     {LEA, 4, 0, 2, {1}, 1, {1, 3}, 2},          
-    {CLR, 5, 1, 1, {}, 0, {1, 3}, 2},           
-    {NOT, 5, 2, 1, {}, 0, {1, 3}, 2},           
-    {INC, 5, 3, 1, {}, 0, {1, 3}, 2},           
-    {DEC, 5, 4, 1, {}, 0, {1, 3}, 2},           
-    {JMP, 9, 1, 1, {}, 0, {1, 2}, 2},           
-    {BNE, 9, 2, 1, {}, 0, {1, 2}, 2},           
-    {JSR, 9, 3, 1, {}, 0, {1, 2}, 2},           
-    {RED, 12, 0, 1, {}, 0, {1, 3}, 2},           
-    {PRN, 13, 0, 1, {}, 0, {0, 1, 3}, 3},        
-    {RTS, 14, 0, 0, {}, 0, {}, 0},               
-    {STOP, 15, 0, 0, {}, 0, {}, 0}               
+    {CLR, 5, 1, 1, {0}, 0, {1, 3}, 2},           
+    {NOT, 5, 2, 1, {0}, 0, {1, 3}, 2},           
+    {INC, 5, 3, 1, {0}, 0, {1, 3}, 2},           
+    {DEC, 5, 4, 1, {0}, 0, {1, 3}, 2},           
+    {JMP, 9, 1, 1, {0}, 0, {1, 2}, 2},           
+    {BNE, 9, 2, 1, {0}, 0, {1, 2}, 2},           
+    {JSR, 9, 3, 1, {0}, 0, {1, 2}, 2},           
+    {RED, 12, 0, 1, {0}, 0, {1, 3}, 2},           
+    {PRN, 13, 0, 1, {0}, 0, {0, 1, 3}, 3},        
+    {RTS, 14, 0, 0, {0}, 0, {0}, 0},               
+    {STOP, 15, 0, 0, {0}, 0, {0}, 0}               
 };
 
 const int OPCODE_TABLE_SIZE = sizeof(OPCODE_TABLE) / sizeof(OPCODE_TABLE[0]);
@@ -359,12 +360,40 @@ int validate_instruction(const instruction* instr) {
     return SUCCESS;  /* Valid instruction */
 }
 
+void write_first_word_hex_to_file(FILE* file, first_word* first_word) {
+    unsigned int value = 0;
+
+    value |= (first_word->E            & 0x1)      << 0;   
+    value |= (first_word->R            & 0x1)      << 1;   
+    value |= (first_word->A            & 0x1)      << 2;   
+    value |= (first_word->funct        & 0x1F)     << 3;   
+    value |= (first_word->dest_reg     & 0x7)      << 8;   
+    value |= (first_word->dest_address & 0x3)      << 11;  
+    value |= (first_word->src_reg      & 0x7)      << 13;  
+    value |= (first_word->src_address  & 0x3)      << 16;  
+    value |= (first_word->opcode_value & 0x3F)     << 18;  
+
+    fprintf(file, "%06X\n", value & 0xFFFFFF);
+}
+
+void write_operand_hex_to_file(FILE* file, operand* operand) {
+    unsigned int value = 0;
+
+    value |= (operand->E        & 0x1)       << 0;   
+    value |= (operand->R        & 0x1)       << 1;   
+    value |= (operand->A        & 0x1)       << 2;   
+    value |= (operand->integer  & 0x1FFFFF)  << 3;   
+
+    fprintf(file, "%06X\n", value & 0xFFFFFF);
+}
+
 first_word generate_first_word(const instruction* instr) {
+    const OpcodeRule* opcode_rule = get_opcode_rule(instr->opcode);
     first_word first_word_val;
+
     first_word_val.A = 1;
     first_word_val.R = 0;
     first_word_val.E = 0;
-    const OpcodeRule* opcode_rule = get_opcode_rule(instr->opcode);
     first_word_val.opcode_value = opcode_rule->opcode_value;
     first_word_val.funct = opcode_rule->funct;
     if (instr->num_of_operands == 2) {
@@ -438,7 +467,9 @@ int build_instruction(instruction* instr, machine_code* machine_code) {
 }
 
 void strip_whitespace(char *str) {
-    int start = 0, end = strlen(str) - 1;
+    int i;
+    int start = 0;
+    int end = strlen(str) - 1;
 
     /* Trim leading whitespace */
     while (isspace((unsigned char)str[start])) {
@@ -451,7 +482,6 @@ void strip_whitespace(char *str) {
     }
 
     /* Shift characters forward */
-    int i;
     for (i = 0; i <= end - start; i++) {
         str[i] = str[start + i];
     }
@@ -481,7 +511,7 @@ void save_obj_file(const char* filename, machine_code* code, size_t code_count, 
     }
     for (i = 0; i < data_count; i++)
     {
-        fprintf(file, "%07d %06X\n", line_number++, data[i].integer);
+        fprintf(file, "%07d %06X\n", line_number++, data[i].value.integer);
     }
 
     fclose(file);
@@ -519,36 +549,8 @@ void save_externals_file(const char* filename, external_info* externals, size_t 
     fclose(file);
 }
 
-void write_first_word_hex_to_file(FILE* file, first_word* first_word) {
-    unsigned int value = 0;
-
-    value |= (first_word->E            & 0x1)      << 0;   
-    value |= (first_word->R            & 0x1)      << 1;   
-    value |= (first_word->A            & 0x1)      << 2;   
-    value |= (first_word->funct        & 0x1F)     << 3;   
-    value |= (first_word->dest_reg     & 0x7)      << 8;   
-    value |= (first_word->dest_address & 0x3)      << 11;  
-    value |= (first_word->src_reg      & 0x7)      << 13;  
-    value |= (first_word->src_address  & 0x3)      << 16;  
-    value |= (first_word->opcode_value & 0x3F)     << 18;  
-
-    fprintf(file, "%06X\n", value & 0xFFFFFF);
-}
-
-void write_operand_hex_to_file(FILE* file, operand* operand) {
-    unsigned int value = 0;
-
-    value |= (operand->E        & 0x1)       << 0;   
-    value |= (operand->R        & 0x1)       << 1;   
-    value |= (operand->A        & 0x1)       << 2;   
-    value |= (operand->integer  & 0x1FFFFF)  << 3;   
-
-    fprintf(file, "%06X\n", value & 0xFFFFFF);
-}
-
 int first_cycle(char* filename) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
-    int len;
     int error;
     size_t IC = 100;
     size_t DC = 0;
@@ -561,6 +563,17 @@ int first_cycle(char* filename) {
     size_t code_count = 0;
     size_t externals_count = 0;
     FILE *file = fopen(filename, "r");
+    char label[MAX_LABEL_LENGTH + 1] = {0};
+    int is_line_with_label = 0;
+    char* mod_line;
+    size_t data_count_temp;
+    instruction ins;
+    int i;
+    size_t ICF;
+    size_t DCF;
+    int resolved;
+    char* token;
+    int L;
 
     if (!file) {
         printf("Error: The specified file (%s) does not exist.\n", filename);
@@ -579,8 +592,6 @@ int first_cycle(char* filename) {
             continue;
         }
 
-        char label[MAX_LABEL_LENGTH + 1] = {0};
-        int is_line_with_label = 0;
         if (strchr(line, ':')) {
             is_line_with_label = 1;
             get_label(line, label);  /* can be wrong label so raise error */
@@ -589,7 +600,7 @@ int first_cycle(char* filename) {
             }
         }
 
-        char* mod_line = line;
+        mod_line = line;
         if (is_line_with_label) {
             mod_line += strlen(label) + 1;  /* now line is a command without label (+1 for :)*/
         }
@@ -607,7 +618,7 @@ int first_cycle(char* filename) {
                     return error;
                 }
             }
-            size_t data_count_temp = data_count;
+            data_count_temp = data_count;
             if (is_data_instruction(mod_line)) {
                 error = translate_data(data, &data_count, mod_line);
             } else {
@@ -624,7 +635,7 @@ int first_cycle(char* filename) {
             continue;
         } 
         else if (is_extern_instruction(mod_line)) {
-            char* token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
+            token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
             token = strtok(NULL, " \t"); /* Get the next token, which is the name */
             error = add_label_to_symbol_table(&label_table, &label_count, token, IC, extern_label);
             if (error) {
@@ -641,15 +652,14 @@ int first_cycle(char* filename) {
                     return error;
                 }
             }
-            instruction ins;
             parse_instruction(&ins, mod_line);
             error = validate_instruction(&ins);
             if (error) {
-                printf("Error: Couldn't validate instruction (%s).\n", ins);
+                printf("Error: Couldn't validate instruction (%s).\n", line);
                 return error;
             }
 
-            int L = calculate_number_of_words(&ins);
+            L = calculate_number_of_words(&ins);
             if (L == 1) {
                 code[code_count].operand_code = NULL;    
             } else {
@@ -657,16 +667,13 @@ int first_cycle(char* filename) {
             }
             code[code_count].IC = IC;
             code[code_count].L = L;
-            int resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
+            resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
             code[code_count].need_to_resolve = resolved != (L - 1);
             IC += L;
             code_count++;
         }
     }
 
-    int i;
-    size_t ICF;
-    size_t DCF;
     ICF = IC;
     DCF = DC;
     for (i = 0; i < label_count; i++)
@@ -677,12 +684,12 @@ int first_cycle(char* filename) {
     }
     
 
-    second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
-
-    save_obj_file(filename, code, code_count, data, data_count, ICF, DCF);
-    save_entries_file(filename, label_table, label_count);
-    save_externals_file(filename, externals, externals_count);
-    
+    error = second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
+    if (!error) {
+        save_obj_file(filename, code, code_count, data, data_count, ICF, DCF);
+        save_entries_file(filename, label_table, label_count);
+        save_externals_file(filename, externals, externals_count);
+    }
 
     for (i = 0; i < label_count; i++)
     {
@@ -706,12 +713,13 @@ int first_cycle(char* filename) {
 int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     int code_line_number = 0;
-    int len;
     int i, j;
-    int error;
+    char* label_copy;
+    char label[MAX_LABEL_LENGTH + 1] = {0};
+    char* mod_line;
 
     rewind(file);
-    while (len = fgets(line, sizeof(line), file)) {
+    while (fgets(line, sizeof(line), file) != NULL) {
         strip_whitespace(line);
 
         if (line[0] == ';') {
@@ -719,8 +727,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
             continue;
         }
 
-        char label[MAX_LABEL_LENGTH + 1] = {0};
-        char* mod_line = line;
+        mod_line = line;
         if (strchr(line, ':')) {
             get_label(line, label);  /* cant be wrong label - because we check in first cycle */
             mod_line += strlen(label) + 1;
@@ -755,6 +762,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
             int operand_code_index = 0;
             int label_type;
             char* label_name;
+            int label_address;
 
             parse_instruction(&instr, mod_line);
             for (i = 0; i < instr.num_of_operands; i++) {
@@ -776,7 +784,6 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                     return LABEL_DOES_NOT_EXIST;
                 }
 
-                int label_address;
                 for (j = 0; j < label_count; j++)
                 {
                     if (!strcmp(label_name, label_table[j].label_name)) {
@@ -792,7 +799,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                     }
 
                     externals[*externals_count].address = code[code_line_number].IC + 1 + operand_code_index;
-                    char* label_copy = (char*)malloc(strlen((label_name)) + 1);
+                    label_copy = (char*)malloc(strlen((label_name)) + 1);
                     if (!label_copy) {
                         return MEMORY_ALLOCATION_FAILED;
                     }
@@ -823,4 +830,6 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
         }
         code_line_number++;
     }
+
+    return SUCCESS;
 }

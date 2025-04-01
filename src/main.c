@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     int i;
     char am_file[FILENAME_MAX];
     
-    if (argc < NO_INPUT_FILES) {
+    if (argc < MINIMUM_ARGS) {
         printf("Usage: %s <file1.as> [file2.as] [file3.as] ...\n", argv[0]);
         return NO_INPUT_FILES;
     }
