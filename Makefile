@@ -34,7 +34,9 @@ run: all
 	./$(TARGET_ASSEMBLER) $(ARGS)
 
 # Test related files
-BASE_FILES = tests/input_files/repetitive_macro tests/input_files/empty tests/input_files/maman_macro_example tests/input_files/maman_cycle_example tests/input_files/multiple_macros tests/input_files/additional_characters_at_macro tests/input_files/invalid_macro_name
+BASE_FILES = tests/input_files/repetitive_macro tests/input_files/empty tests/input_files/maman_macro_example tests/input_files/maman_cycle_example tests/input_files/multiple_macros \
+ tests/input_files/additional_characters_at_macro tests/input_files/invalid_macro_name tests/input_files/generic_1 tests/input_files/generic_2 tests/input_files/directive_error \
+ tests/input_files/directive tests/input_files/instruction_parsing tests/input_files/instruction_parsing_error
 CREATED_EXTENSIONS = .am .ent .obj .ext
 
 # Test the assembler
