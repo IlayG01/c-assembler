@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 /* copies the filename from the source filename into the target filename with a different extension */
 void copy_filename_with_different_extension(const char* source_filename, char* target_filename, const char* extension) {
@@ -29,4 +30,26 @@ void copy_filename_with_different_extension(const char* source_filename, char* t
     strcat(target_filename, extension);
 
     return;
+}
+
+void strip_whitespace(char *str) {
+    int i;
+    int start = 0;
+    int end = strlen(str) - 1;
+
+    /* Trim leading whitespace */
+    while (isspace((unsigned char)str[start])) {
+        start++;
+    }
+
+    /* Trim trailing whitespace */
+    while (end > start && isspace((unsigned char)str[end])) {
+        end--;
+    }
+
+    /* Shift characters forward */
+    for (i = 0; i <= end - start; i++) {
+        str[i] = str[start + i];
+    }
+    str[i] = '\0'; /* Null-terminate the string */
 }

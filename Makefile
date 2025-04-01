@@ -2,7 +2,7 @@
 CC = gcc
 
 # Compiler Flags
-CFLAGS = -Wall -pedantic -ansi -g
+CFLAGS = -Wall -pedantic -ansi
 
 # Source files for both projects
 SRC = src/main.c src/assembler.c src/macro_processor.c src/utils.c src/consts.c

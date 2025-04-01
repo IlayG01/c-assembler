@@ -10,6 +10,7 @@
 #define MAX_BUF_SIZE 100
 #define MAX_INSTRUCTIONS 1000
 #define LINE_MAX_SIZE 80
+#define CODE_BASE_ADDRESS 100
 
 
 void assemble(char* filename) {
@@ -338,7 +339,7 @@ operand generate_operand_code(char* operand_val) {
 
 int build_instruction(instruction* instr, machine_code* machine_code) {
     int i;
-    int resolved = 0;
+    int amount_opernads_resolved = 0;
     int operand_code_index = 0;
     int address_mode;
 
@@ -346,48 +347,26 @@ int build_instruction(instruction* instr, machine_code* machine_code) {
     for (i = 0; i < instr->num_of_operands; i++) {
         address_mode = get_addressing_mode(instr->operands[i]);
         if (address_mode == 0) {
-            resolved++;
+            amount_opernads_resolved++;
             machine_code->operand_code[operand_code_index] = generate_operand_code(instr->operands[i]);
         }
         if (address_mode != 3) {
             operand_code_index++;  /* no additional word for reg address */
         }
     }
-    return resolved;
-}
-
-void strip_whitespace(char *str) {
-    int i;
-    int start = 0;
-    int end = strlen(str) - 1;
-
-    /* Trim leading whitespace */
-    while (isspace((unsigned char)str[start])) {
-        start++;
-    }
-
-    /* Trim trailing whitespace */
-    while (end > start && isspace((unsigned char)str[end])) {
-        end--;
-    }
-
-    /* Shift characters forward */
-    for (i = 0; i <= end - start; i++) {
-        str[i] = str[start + i];
-    }
-    str[i] = '\0'; /* Null-terminate the string */
+    return amount_opernads_resolved;
 }
 
 void save_obj_file(const char* filename, machine_code* code, size_t code_count, data* data, size_t data_count, size_t ICF, size_t DCF) {
     char obj_filename[FILENAME_MAX];
     FILE* file = NULL;
-    int line_number = 100;
+    int line_number = CODE_BASE_ADDRESS;
     int i, j;
 
     copy_filename_with_different_extension(filename, obj_filename, ".obj");
     file = fopen(obj_filename, "w"); /* TODO: util function to open files safely */
 
-    fprintf(file, "%7ld %ld\n", ICF-100, DCF);
+    fprintf(file, "%7ld %ld\n", ICF-CODE_BASE_ADDRESS, DCF);
     for (i = 0; i < code_count; i++)
     {
         fprintf(file, "%07d ", line_number++);
@@ -441,30 +420,26 @@ void save_externals_file(const char* filename, external_info* externals, size_t 
 
 void first_cycle(char* filename) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
+    char label[MAX_LABEL_LENGTH + 1] = {0};
     int last_error;
     int is_code_with_errors = 0;
-    size_t IC = 100;
-    size_t DC = 0;
+    int i;
+    int amount_opernads_resolved;
+    int L;
+    int line_number = 0;
+    int is_line_with_label = 0;
+    char* mod_line;
+    char* token;
+    size_t IC = CODE_BASE_ADDRESS, DC = 0, ICF, DCF;
+    instruction ins;
+    
     machine_code code[MAX_INSTRUCTIONS];
     data data[MAX_INSTRUCTIONS];
     external_info externals[MAX_INSTRUCTIONS];
     label_element* label_table = NULL;
-    size_t label_count = 0;
-    size_t data_count = 0;
-    size_t code_count = 0;
-    size_t externals_count = 0;
-    char label[MAX_LABEL_LENGTH + 1] = {0};
-    int is_line_with_label = 0;
-    char* mod_line;
+    size_t label_count = 0, data_count = 0, code_count = 0, externals_count = 0;
     size_t data_count_temp;
-    instruction ins;
-    int i;
-    size_t ICF;
-    size_t DCF;
-    int resolved;
-    char* token;
-    int L;
-    int line_number = 0;
+
     FILE *file;
 
     file = fopen(filename, "r");
@@ -574,8 +549,8 @@ void first_cycle(char* filename) {
             }
             code[code_count].IC = IC;
             code[code_count].L = L;
-            resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
-            code[code_count].need_to_resolve = resolved != (L - 1);
+            amount_opernads_resolved = build_instruction(&ins, &code[code_count]);  /* build all the immediate vals */
+            code[code_count].need_to_resolve = amount_opernads_resolved != (L - 1);
             IC += L;
             code_count++;
         }
@@ -618,12 +593,12 @@ void first_cycle(char* filename) {
 
 int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
+    char label[MAX_LABEL_LENGTH + 1] = {0};
     int code_line_number = 0;
+    int is_code_with_errors = 0;
     int i, j;
     char* label_copy;
-    char label[MAX_LABEL_LENGTH + 1] = {0};
     char* mod_line;
-    int is_code_with_errors = 0;
 
     rewind(file);
     while (fgets(line, sizeof(line), file) != NULL) {
@@ -671,8 +646,8 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
             int address_mode;
             int operand_code_index = 0;
             int label_type;
-            char* label_name;
             int label_address;
+            char* label_name;
 
             parse_instruction(&instr, mod_line);
             for (i = 0; i < instr.num_of_operands; i++) {
