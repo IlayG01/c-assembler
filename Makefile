@@ -34,7 +34,7 @@ run: all
 	./$(TARGET_ASSEMBLER) $(ARGS)
 
 # Test related files
-BASE_FILES = tests/input_files/repetitive_macro tests/input_files/empty tests/input_files/maman_macro_example tests/input_files/maman_cycle_example tests/input_files/multiple_macros
+BASE_FILES = tests/input_files/repetitive_macro tests/input_files/empty tests/input_files/maman_macro_example tests/input_files/maman_cycle_example tests/input_files/multiple_macros tests/input_files/additional_characters_at_macro tests/input_files/invalid_macro_name
 CREATED_EXTENSIONS = .am .ent .obj .ext
 
 # Test the assembler
@@ -42,6 +42,7 @@ test: $(TARGET_ASSEMBLER)
 	chmod +x $(TARGET_ASSEMBLER)
 	./$(TARGET_ASSEMBLER) $(BASE_FILES)
 
+# Clean the created files
 clean_test:
 	@echo "Cleaning up generated test files..."
 	# Iterate over each input base and remove the files with the relevant extensions

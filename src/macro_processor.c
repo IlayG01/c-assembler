@@ -1,6 +1,7 @@
 /*
  * Macro Processor
  * Processes files with macro definitions (as) into target files (am)
+ * Notice: non fatal errors (file operations failed) are gracefully handled, which might cause additional errors to encountered.
  */
 #include "macro_processor.h"
 
@@ -38,6 +39,7 @@ int macro_process_file(const char* input_as_file) {
     int in_macro_def = 0;
     int current_macro_index = -1;
     char* token;
+    int is_error_encountered = 0;
 
     initialize_macro_table();
     
@@ -83,6 +85,7 @@ int macro_process_file(const char* input_as_file) {
         if (strncmp(line, "mcro ", 5) == 0) {
             if (in_macro_def) {
                 printf("Error: Nested macro definitions not allowed\n");
+                is_error_encountered = 1;
                 continue;
             }
             
@@ -92,6 +95,7 @@ int macro_process_file(const char* input_as_file) {
             token = strtok(line + 5, " \t");
             if (token == NULL) {
                 printf("Error: Invalid macro definition (no name)\n");
+                is_error_encountered = 1;
                 continue;
             }
             
@@ -101,12 +105,14 @@ int macro_process_file(const char* input_as_file) {
             token = strtok(NULL, " \t");
             if (token != NULL) {
                 printf("Error: Additional parameters in macro definition line\n");
+                is_error_encountered = 1;
                 continue;
             }
             
             /* Check if macro name is valid */
             if (!is_valid_macro_name(macro_name)) {
                 printf("Error: Invalid macro name: %s\n", macro_name);
+                is_error_encountered = 1;
                 in_macro_def = 0;
                 continue;
             }
@@ -123,6 +129,7 @@ int macro_process_file(const char* input_as_file) {
         if (strcmp(line, "mcroend") == 0) {
             if (!in_macro_def) {
                 printf("Error: 'mcroend' without matching 'mcro'\n");
+                is_error_encountered = 1;
                 fprintf(out_file, "%s\n", line);
                 continue;
             }
@@ -131,6 +138,7 @@ int macro_process_file(const char* input_as_file) {
             token = strtok(line + 7, " \t");
             if (token != NULL) {
                 printf("Error: Additional parameters in macro end line\n");
+                is_error_encountered = 1;
             }
             
             in_macro_def = 0;
@@ -162,12 +170,13 @@ int macro_process_file(const char* input_as_file) {
     /* Check if we ended in a macro definition */
     if (in_macro_def) {
         printf("Warning: File ended in macro definition\n");
+        is_error_encountered = 1;
     }
     
     fclose(in_file);
     fclose(out_file);
     
-    return 0;
+    return is_error_encountered;
 }
 
 /* Check if a macro name is valid, returns 1 if valid, 0 if invalid */
@@ -191,7 +200,7 @@ int is_valid_macro_name(const char* name) {
 int is_reserved_word(const char* name) {
     char* reserved_words[] = {
         "stop", "rts", "prn", "red", "jsr", "bne", "jmp", 
-        "dec", "inc", "not", "clr", "lea", "sub", "add", "cmp", "mov"
+        "dec", "inc", "not", "clr", "lea", "sub", "add", "cmp", "mov", "mcro", "mcroend"
     };
     int i;
     int num_reserved = sizeof(reserved_words) / sizeof(reserved_words[0]);

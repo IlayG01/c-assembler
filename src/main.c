@@ -18,7 +18,7 @@
 /* main.c */
 
 int main(int argc, char* argv[]) {
-    int i;
+    int i, result;
     char as_file[FILENAME_MAX];
     char am_file[FILENAME_MAX];
     
@@ -27,13 +27,14 @@ int main(int argc, char* argv[]) {
         return NO_INPUT_FILES;
     }
     
-    /* macro process files*/
     for (i = 1; i < argc; i++) {
+        /* macro process files*/
         copy_filename_with_different_extension(argv[i], as_file, ".as");
-        macro_process_file(as_file);
-    }
-    /* assemble files */
-    for (i = 1; i < argc; i++) {
+        result = macro_process_file(as_file);
+        /* assemble files */
+        if (result) {
+            continue;
+        }
         copy_filename_with_different_extension(argv[i], am_file, ".am");
         assemble(am_file);
     }
