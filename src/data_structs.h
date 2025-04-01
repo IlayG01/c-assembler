@@ -55,9 +55,9 @@ typedef struct {
 
 typedef enum {
     data_label = 0x1,
-    entry_label = 0x10,
-    extern_label = 0x100,
-    code_label = 0x1000
+    entry_label = 0x2,
+    extern_label = 0x4,
+    code_label = 0x8
 } label_options;
 
 typedef struct {

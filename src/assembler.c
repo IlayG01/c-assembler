@@ -11,6 +11,10 @@
 #define MAX_INSTRUCTIONS 1000
 #define LINE_MAX_SIZE 80
 #define CODE_BASE_ADDRESS 100
+#define IMMEDIATE_ADDRESS_MODE 0
+#define DIRECT_ADDRESS_MODE 1
+#define REALTIVE_ADDRESS_MODE 2
+#define REGISTER_ADDRESS_MODE 3
 
 
 void assemble(char* filename) {
@@ -188,10 +192,10 @@ void parse_instruction(instruction* instr, const char* line) {
 /* Identify the addressing mode of an operand */
 int get_addressing_mode(const char* operand) {
     if (!operand) return -1;
-    if (operand[0] == '#') return 0;  /* Immediate */
-    if (operand[0] == '&') return 2;  /* Relative */
-    if (operand[0] == 'r' && strlen(operand) == 2 && operand[1] >= '0' && operand[1] <= '7') return 3; /* Register */
-    return 1;  /* Direct */
+    if (operand[0] == '#') return IMMEDIATE_ADDRESS_MODE;
+    if (operand[0] == '&') return REALTIVE_ADDRESS_MODE;
+    if (operand[0] == 'r' && strlen(operand) == 2 && operand[1] >= '0' && operand[1] <= '7') return REGISTER_ADDRESS_MODE;
+    return DIRECT_ADDRESS_MODE;
 }
 
 /* Check if mode is allowed for an operand */
@@ -289,18 +293,18 @@ first_word generate_first_word(const instruction* instr) {
     first_word_val.funct = opcode_rule->funct;
     if (instr->num_of_operands == 2) {
         first_word_val.src_address = get_addressing_mode(instr->operands[0]);
-        if (first_word_val.src_address == 3) {
+        if (first_word_val.src_address == REGISTER_ADDRESS_MODE) {
             first_word_val.src_reg = instr->operands[0][1] - '0';
         }
         first_word_val.dest_address = get_addressing_mode(instr->operands[1]);
-        if (first_word_val.dest_address == 3) {
+        if (first_word_val.dest_address == REGISTER_ADDRESS_MODE) {
             first_word_val.dest_reg = instr->operands[1][1] - '0';
         }
     } else if (instr->num_of_operands == 1) {
         first_word_val.src_address = 0;
         first_word_val.src_reg = 0;
         first_word_val.dest_address = get_addressing_mode(instr->operands[0]);
-        if (first_word_val.dest_address == 3) {
+        if (first_word_val.dest_address == REGISTER_ADDRESS_MODE) {
             first_word_val.dest_reg = instr->operands[0][1] - '0';
         }
     } else {
@@ -319,11 +323,11 @@ int calculate_number_of_words(const instruction* instr) {
         int src_mode = get_addressing_mode(instr->operands[0]);
         int dest_mode = get_addressing_mode(instr->operands[1]);
 
-        return 1 + (src_mode != 3) + (dest_mode != 3);
+        return 1 + (src_mode != REGISTER_ADDRESS_MODE) + (dest_mode != REGISTER_ADDRESS_MODE);
     } else if (instr->num_of_operands == 1) {
         /* Instruction only has a destination operand */
         int dest_mode = get_addressing_mode(instr->operands[0]);
-        return 1 + (dest_mode != 3);
+        return 1 + (dest_mode != REGISTER_ADDRESS_MODE);
     }
     return 1;
 }
@@ -346,11 +350,11 @@ int build_instruction(instruction* instr, machine_code* machine_code) {
     machine_code->first_word_val = generate_first_word(instr);
     for (i = 0; i < instr->num_of_operands; i++) {
         address_mode = get_addressing_mode(instr->operands[i]);
-        if (address_mode == 0) {
+        if (address_mode == IMMEDIATE_ADDRESS_MODE) {
             amount_opernads_resolved++;
             machine_code->operand_code[operand_code_index] = generate_operand_code(instr->operands[i]);
         }
-        if (address_mode != 3) {
+        if (address_mode != REGISTER_ADDRESS_MODE) {
             operand_code_index++;  /* no additional word for reg address */
         }
     }
@@ -652,17 +656,17 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
             parse_instruction(&instr, mod_line);
             for (i = 0; i < instr.num_of_operands; i++) {
                 address_mode = get_addressing_mode(instr.operands[i]);
-                if (address_mode == 0) {
+                if (address_mode == IMMEDIATE_ADDRESS_MODE) {
                     operand_code_index++;  /* already built */
                     continue;
                 }
-                if (address_mode == 3) {
+                if (address_mode == REGISTER_ADDRESS_MODE) {
                     continue;  /* no additional word for reg address */
                 }
 
                 label_name = instr.operands[i];
-                if (address_mode == 2) {
-                    /* may contain & as prefix */
+                if (address_mode == REALTIVE_ADDRESS_MODE) {
+                    /* contain & as prefix */
                     label_name++;
                 }
                 if (!is_label_exist(label_name, label_table, label_count)) {
@@ -681,7 +685,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                 }
 
                 if (label_type == extern_label) {
-                    if (address_mode == 2) {
+                    if (address_mode == REALTIVE_ADDRESS_MODE) {
                         printf("Error: Invalid jump to external address (%s).\n", label_name);
                         is_code_with_errors = 1;
                         continue;
@@ -704,12 +708,12 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                     code[code_line_number].operand_code[operand_code_index].integer = 0;
                 } else {
                     code[code_line_number].operand_code[operand_code_index].E = 0;
-                    if (address_mode == 2) {
+                    if (address_mode == REALTIVE_ADDRESS_MODE) {
                         code[code_line_number].operand_code[operand_code_index].A = 1;                        
                         code[code_line_number].operand_code[operand_code_index].R = 0;
                         code[code_line_number].operand_code[operand_code_index].integer = label_address - code[code_line_number].IC;
                     } else {
-                        /* address mode == 1 */
+                        /* address mode == DIRECT_ADDRESS_MODE */
                         code[code_line_number].operand_code[operand_code_index].A = 0;
                         code[code_line_number].operand_code[operand_code_index].R = 1;
                         code[code_line_number].operand_code[operand_code_index].integer = label_address;
