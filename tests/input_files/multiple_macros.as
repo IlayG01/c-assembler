@@ -1,8 +1,8 @@
 mcro a_mc
-cmp A, -6
+A: cmp A, #-6
 mcroend
 a_mc
 mcro b_mc
-cmp B, -6
+B: cmp B, #-6
 mcroend
 b_mc

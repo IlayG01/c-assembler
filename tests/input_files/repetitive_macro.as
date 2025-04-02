@@ -1,5 +1,6 @@
+.extern A
 mcro inf
-cmp A, -6
+cmp A, #-6
 mcroend
 inf
 inf

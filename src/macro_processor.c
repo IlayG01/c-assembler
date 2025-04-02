@@ -1,6 +1,7 @@
 /*
  * Macro Processor
  * Processes files with macro definitions (as) into target files (am)
+ * Notice: non fatal errors (file operations failed) are gracefully handled, which might cause additional errors to encountered.
  */
 #include "macro_processor.h"
 
@@ -29,31 +30,32 @@ Macro macro_table[MAX_MACROS];
 int macro_count = 0;
 
 /* Process a single file, returns 0 on success, non-zero on error (not logical/parsing error but resource error which couldn't be handled differently) */
-int macro_process_file(const char* input_file) {
+int macro_process_file(const char* input_as_file) {
     FILE* in_file;
     FILE* out_file;
     char line[MAX_LINE_LENGTH];
-    char output_file[FILENAME_MAX];
+    char output_am_file[FILENAME_MAX];
     char macro_name[MAX_MACRO_NAME_LENGTH];
     int in_macro_def = 0;
     int current_macro_index = -1;
     char* token;
+    int is_error_encountered = 0;
 
     initialize_macro_table();
     
     /* Check if the file exists */
-    in_file = fopen(input_file, "r");
+    in_file = fopen(input_as_file, "r");
     if (in_file == NULL) {
-        printf("File not found: %s\n", input_file);
+        printf("File not found: %s\n", input_as_file);
         return 1;
     }
     
     /* Create output file name with .am extension */
-    copy_filename_with_different_extension(input_file, output_file, ".am");
+    copy_filename_with_different_extension(input_as_file, output_am_file, ".am");
     
-    out_file = fopen(output_file, "w");
+    out_file = fopen(output_am_file, "w");
     if (out_file == NULL) {
-        printf("Could not create output file: %s\n", output_file);
+        printf("Could not create output file: %s\n", output_am_file);
         fclose(in_file);
         return 1;
     }
@@ -83,6 +85,7 @@ int macro_process_file(const char* input_file) {
         if (strncmp(line, "mcro ", 5) == 0) {
             if (in_macro_def) {
                 printf("Error: Nested macro definitions not allowed\n");
+                is_error_encountered = 1;
                 continue;
             }
             
@@ -92,6 +95,7 @@ int macro_process_file(const char* input_file) {
             token = strtok(line + 5, " \t");
             if (token == NULL) {
                 printf("Error: Invalid macro definition (no name)\n");
+                is_error_encountered = 1;
                 continue;
             }
             
@@ -101,12 +105,14 @@ int macro_process_file(const char* input_file) {
             token = strtok(NULL, " \t");
             if (token != NULL) {
                 printf("Error: Additional parameters in macro definition line\n");
+                is_error_encountered = 1;
                 continue;
             }
             
             /* Check if macro name is valid */
             if (!is_valid_macro_name(macro_name)) {
                 printf("Error: Invalid macro name: %s\n", macro_name);
+                is_error_encountered = 1;
                 in_macro_def = 0;
                 continue;
             }
@@ -123,6 +129,7 @@ int macro_process_file(const char* input_file) {
         if (strcmp(line, "mcroend") == 0) {
             if (!in_macro_def) {
                 printf("Error: 'mcroend' without matching 'mcro'\n");
+                is_error_encountered = 1;
                 fprintf(out_file, "%s\n", line);
                 continue;
             }
@@ -131,6 +138,7 @@ int macro_process_file(const char* input_file) {
             token = strtok(line + 7, " \t");
             if (token != NULL) {
                 printf("Error: Additional parameters in macro end line\n");
+                is_error_encountered = 1;
             }
             
             in_macro_def = 0;
@@ -162,12 +170,19 @@ int macro_process_file(const char* input_file) {
     /* Check if we ended in a macro definition */
     if (in_macro_def) {
         printf("Warning: File ended in macro definition\n");
+        is_error_encountered = 1;
     }
     
     fclose(in_file);
     fclose(out_file);
+
+    if (is_error_encountered) {
+        if (remove(output_am_file) != 0) {
+            printf("Warning: Could not remove output file after error\n");
+        }
+    }
     
-    return 0;
+    return is_error_encountered;
 }
 
 /* Check if a macro name is valid, returns 1 if valid, 0 if invalid */
@@ -185,24 +200,6 @@ int is_valid_macro_name(const char* name) {
     }
     
     return 1;
-}
-
-/* Check if a name is a reserved word, returns 1 if reserved, 0 if not */
-int is_reserved_word(const char* name) {
-    char* reserved_words[] = {
-        "stop", "rts", "prn", "red", "jsr", "bne", "jmp", 
-        "dec", "inc", "not", "clr", "lea", "sub", "add", "cmp", "mov"
-    };
-    int i;
-    int num_reserved = sizeof(reserved_words) / sizeof(reserved_words[0]);
-    
-    for (i = 0; i < num_reserved; i++) {
-        if (strcmp(name, reserved_words[i]) == 0) {
-            return 1;
-        }
-    }
-    
-    return 0;
 }
 
 /* Find a macro by name, returns the index of the macro in the table, or -1 if not found */

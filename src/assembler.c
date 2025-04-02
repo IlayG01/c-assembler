@@ -26,6 +26,10 @@ int is_valid_label(const char *label) {
     int len = strlen(label);
     int i;
 
+    if (is_reserved_word(label)) {
+        return 1;
+    }
+
     /* Check length constraint */
     if (len == 0 || len > MAX_LABEL_LENGTH) {
         return 0;
@@ -542,7 +546,18 @@ void first_cycle(char* filename) {
         } 
         else if (is_extern_instruction(mod_line)) {
             token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
+            if (!token || strcmp(token, ".extern")) {
+                printf("Error: Invalid extern line. Line number (%d)\n", line_number);
+                is_code_with_errors = 1;
+                continue;
+            }
             token = strtok(NULL, " \t"); /* Get the next token, which is the name */
+            if (is_reserved_word(token)) {
+                printf("Error: Invalid extern label (%s) encountered.\n", token);
+                is_code_with_errors = 1;
+                continue;
+            }
+
             last_error = add_label_to_symbol_table(&label_table, &label_count, token, IC, extern_label);
             if (last_error) {
                 printf("Error: Couldn't add label (%s) to symbol table.\n", token);
@@ -622,6 +637,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     char label[MAX_LABEL_LENGTH + 1] = {0};
     int code_line_number = 0;
+    int line_number = 0;
     int is_code_with_errors = 0;
     int i, j;
     char* label_copy;
@@ -629,6 +645,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
 
     rewind(file);
     while (fgets(line, sizeof(line), file) != NULL) {
+        line_number++;
         strip_whitespace(line);
 
         if (line[0] == ';' || strlen(line) == 0) {
@@ -650,7 +667,17 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
         if (is_entry_instruction(mod_line)) {
             char* token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
             int found = 0;
+            if (!token || strcmp(token, ".entry")) {
+                printf("Error: Invalid entry line. Line number (%d)\n", line_number);
+                is_code_with_errors = 1;
+                continue;
+            }
             token = strtok(NULL, " \t"); /* Get the next token, which is the name */
+            if (is_reserved_word(token)) {
+                printf("Error: Invalid entry label (%s) encountered.\n", token);
+                is_code_with_errors = 1;
+                continue;
+            }
 
             for (i = 0; i < label_count; i++)
             {
