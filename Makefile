@@ -2,33 +2,60 @@
 CC = gcc
 
 # Compiler Flags
-CFLAGS = -Wall -pedantic -ansi -g
+CFLAGS = -Wall -pedantic -ansi
 
 # Source files
-SRC = src/main.c src/assembler.c
+ASSEMBLER_SRC = src/main.c src/assembler.c src/macro_processor.c src/utils.c src/consts.c
 
 # Object files
-OBJ = $(SRC:.c=.o)
-
-# Executable name
-TARGET = assembler
-
-# Link the executable
-$(TARGET): $(OBJ)
-	$(CC) $(OBJ) -o $(TARGET)
-	rm $(OBJ)
+ASSEMBLER_OBJ = $(ASSEMBLER_SRC:.c=.o)
 
 # Compile .c files into .o files
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Clean compiled files
-clean:
-	rm -f $(OBJ) $(TARGET)
+# Executable name
+TARGET_ASSEMBLER = assembler
 
-# Run the program
+# Default target to build the executables
+all: $(TARGET_ASSEMBLER)
+
+$(TARGET_ASSEMBLER): $(ASSEMBLER_OBJ)
+	$(CC) $(ASSEMBLER_OBJ) -o $(TARGET_ASSEMBLER)
+	rm $(ASSEMBLER_OBJ)
+
+
+# Clean target to clean the generated files
+clean: clean_test
+	rm -f $(ASSEMBLER_OBJ) $(TARGET_ASSEMBLER)
+
+# Run the assembler
 run: all
-	./$(TARGET)
+	./$(TARGET_ASSEMBLER) $(ARGS)
+
+# Test related files
+BASE_FILES = tests/input_files/repetitive_macro tests/input_files/empty tests/input_files/maman_macro_example tests/input_files/maman_cycle_example tests/input_files/multiple_macros \
+ tests/input_files/additional_characters_at_macro tests/input_files/invalid_macro_name tests/input_files/generic_1 tests/input_files/generic_2 tests/input_files/directive_error \
+ tests/input_files/directive tests/input_files/instruction_parsing tests/input_files/instruction_parsing_error
+CREATED_EXTENSIONS = .am .ent .obj .ext
+
+# Test the assembler
+test: $(TARGET_ASSEMBLER)
+	chmod +x $(TARGET_ASSEMBLER)
+	./$(TARGET_ASSEMBLER) $(BASE_FILES)
+
+# Clean the created files
+clean_test:
+	@echo "Cleaning up generated test files..."
+	# Iterate over each input base and remove the files with the relevant extensions
+	@for base in $(BASE_FILES); do \
+		for ext in $(CREATED_EXTENSIONS); do \
+			if [ -f $$base$$ext ]; then \
+				rm -f $$base$$ext; \
+			fi \
+		done; \
+	done
+
 
 # PHONY targets
-.PHONY: all clean run
+.PHONY: all clean run test clean_test
