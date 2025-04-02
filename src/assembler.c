@@ -309,10 +309,14 @@ first_word generate_first_word(const instruction* instr) {
         first_word_val.src_address = get_addressing_mode(instr->operands[0]);
         if (first_word_val.src_address == REGISTER_ADDRESS_MODE) {
             first_word_val.src_reg = instr->operands[0][1] - '0';
+        } else {
+            first_word_val.src_reg = 0;
         }
         first_word_val.dest_address = get_addressing_mode(instr->operands[1]);
         if (first_word_val.dest_address == REGISTER_ADDRESS_MODE) {
             first_word_val.dest_reg = instr->operands[1][1] - '0';
+        } else {
+            first_word_val.dest_reg = 0;
         }
     } else if (instr->num_of_operands == 1) {
         first_word_val.src_address = 0;
@@ -320,6 +324,8 @@ first_word generate_first_word(const instruction* instr) {
         first_word_val.dest_address = get_addressing_mode(instr->operands[0]);
         if (first_word_val.dest_address == REGISTER_ADDRESS_MODE) {
             first_word_val.dest_reg = instr->operands[0][1] - '0';
+        } else {
+            first_word_val.dest_reg = 0;
         }
     } else {
         first_word_val.src_address = 0;
