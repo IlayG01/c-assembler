@@ -1,8 +1,11 @@
 /*
  * Macro Processor
- * Processes files with macro definitions (as) into target files (am)
- * Notice: non fatal errors (file operations failed) are gracefully handled, which might cause additional errors to encountered.
+ * Processes files with macro definitions (as) into target files (am).
+ * This program reads an input file, identifies macro definitions, and expands macro invocations in the output file.
+ * Non-fatal errors (e.g., file operation failures) are gracefully handled, which might cause additional errors to be encountered.
+ *
  */
+
 #include "macro_processor.h"
 
 #include <stdio.h>
@@ -29,7 +32,142 @@ typedef struct {
 Macro macro_table[MAX_MACROS];
 int macro_count = 0;
 
-/* Process a single file, returns 0 on success, non-zero on error (not logical/parsing error but resource error which couldn't be handled differently) */
+/**
+ * Initializes the macro table by clearing all entries.
+ */
+void initialize_macro_table() {
+    memset(macro_table, 0, sizeof(macro_table));
+    macro_count = 0;
+}
+
+/**
+ * Finds a macro by its name.
+ * 
+ * @param name The name of the macro to find.
+ * @return The index of the macro in the table, or -1 if not found.
+ */
+int find_macro(const char* name) {
+    int i;
+    
+    for (i = 0; i < macro_count; i++) {
+        if (strcmp(macro_table[i].name, name) == 0) {
+            return i;
+        }
+    }
+    
+    return -1;
+}
+
+/**
+ * Strips newline characters ('\n' or '\r') from the end of a string.
+ * 
+ * @param str The string to process. The operation is performed in-place.
+ */
+void strip_newline(char* str) {
+    char* p = strchr(str, '\n');
+    if (p != NULL) {
+        *p = '\0';
+    }
+    
+    p = strchr(str, '\r');
+    if (p != NULL) {
+        *p = '\0';
+    }
+}
+
+/**
+ * Checks if a macro name is valid.
+ * 
+ * @param name The macro name to validate.
+ * @return 1 if the name is valid, 0 otherwise.
+ */
+int is_valid_macro_name(const char* name) {
+    if (name == NULL || strlen(name) == 0) {
+        return 0;
+    }
+    
+    if (is_reserved_word(name)) {
+        return 0;
+    }
+    
+    if (find_macro(name) >= 0) {
+        return 0;
+    }
+    
+    return 1;
+}
+
+/**
+ * Trims leading and trailing whitespace from a string.
+ * 
+ * @param str The string to trim. The operation is performed in-place.
+ */
+void trim_whitespace(char* str) {
+    char* start = str;
+    char* end;
+    
+    /* Find the first non-whitespace character */
+    while (isspace((unsigned char)*start)) {
+        start++;
+    }
+    
+    /* If the string is all whitespace, return an empty string */
+    if (*start == '\0') {
+        *str = '\0';
+        return;
+    }
+    
+    /* Find the last non-whitespace character */
+    end = start + strlen(start) - 1;
+    while (end > start && isspace((unsigned char)*end)) {
+        end--;
+    }
+    
+    /* Null-terminate the string after the last non-whitespace character */
+    *(end + 1) = '\0';
+    
+    /* If the string didn't start at the beginning, move it there */
+    if (start != str) {
+        memmove(str, start, strlen(start) + 1);
+    }
+}
+
+/**
+ * Adds a new macro to the macro table.
+ * 
+ * @param name The name of the macro to add.
+ */
+void add_macro(const char* name) {
+    if (macro_count >= MAX_MACROS) {
+        printf("Error: Maximum number of macros reached\n");
+        return;
+    }
+    
+    strcpy(macro_table[macro_count].name, name);
+    macro_table[macro_count].line_count = 0;
+    macro_count++;
+}
+
+/**
+ * Adds a line to a macro's definition.
+ * 
+ * @param macro_index The index of the macro in the table.
+ * @param line The line to add to the macro.
+ */
+void add_line_to_macro(int macro_index, const char* line) {
+    if (macro_index < 0 || macro_index >= macro_count) {
+        return;
+    }
+    
+    if (macro_table[macro_index].line_count >= MAX_MACRO_LINES) {
+        printf("Error: Maximum number of lines in macro reached\n");
+        return;
+    }
+    
+    strcpy(macro_table[macro_index].lines[macro_table[macro_index].line_count], line);
+    macro_table[macro_index].line_count++;
+}
+
 int macro_process_file(const char* input_as_file) {
     FILE* in_file;
     FILE* out_file;
@@ -183,111 +321,4 @@ int macro_process_file(const char* input_as_file) {
     }
     
     return is_error_encountered;
-}
-
-/* Check if a macro name is valid, returns 1 if valid, 0 if invalid */
-int is_valid_macro_name(const char* name) {
-    if (name == NULL || strlen(name) == 0) {
-        return 0;
-    }
-    
-    if (is_reserved_word(name)) {
-        return 0;
-    }
-    
-    if (find_macro(name) >= 0) {
-        return 0;
-    }
-    
-    return 1;
-}
-
-/* Find a macro by name, returns the index of the macro in the table, or -1 if not found */
-int find_macro(const char* name) {
-    int i;
-    
-    for (i = 0; i < macro_count; i++) {
-        if (strcmp(macro_table[i].name, name) == 0) {
-            return i;
-        }
-    }
-    
-    return -1;
-}
-
-/* Trim leading and trailing whitespace from a string */
-void trim_whitespace(char* str) {
-    char* start = str;
-    char* end;
-    
-    /* Find the first non-whitespace character */
-    while (isspace((unsigned char)*start)) {
-        start++;
-    }
-    
-    /* If the string is all whitespace, return an empty string */
-    if (*start == '\0') {
-        *str = '\0';
-        return;
-    }
-    
-    /* Find the last non-whitespace character */
-    end = start + strlen(start) - 1;
-    while (end > start && isspace((unsigned char)*end)) {
-        end--;
-    }
-    
-    /* Null-terminate the string after the last non-whitespace character */
-    *(end + 1) = '\0';
-    
-    /* If the string didn't start at the beginning, move it there */
-    if (start != str) {
-        memmove(str, start, strlen(start) + 1);
-    }
-}
-
-/* Strip newline characters from the end of a string */
-void strip_newline(char* str) {
-    char* p = strchr(str, '\n');
-    if (p != NULL) {
-        *p = '\0';
-    }
-    
-    p = strchr(str, '\r');
-    if (p != NULL) {
-        *p = '\0';
-    }
-}
-
-/* Add a new macro to the table */
-void add_macro(const char* name) {
-    if (macro_count >= MAX_MACROS) {
-        printf("Error: Maximum number of macros reached\n");
-        return;
-    }
-    
-    strcpy(macro_table[macro_count].name, name);
-    macro_table[macro_count].line_count = 0;
-    macro_count++;
-}
-
-/* Add a line to a macro's definition */
-void add_line_to_macro(int macro_index, const char* line) {
-    if (macro_index < 0 || macro_index >= macro_count) {
-        return;
-    }
-    
-    if (macro_table[macro_index].line_count >= MAX_MACRO_LINES) {
-        printf("Error: Maximum number of lines in macro reached\n");
-        return;
-    }
-    
-    strcpy(macro_table[macro_index].lines[macro_table[macro_index].line_count], line);
-    macro_table[macro_index].line_count++;
-}
-
-/* Initialize macro table */
-void initialize_macro_table() {
-    memset(macro_table, 0, sizeof(macro_table));
-    macro_count = 0;
 }

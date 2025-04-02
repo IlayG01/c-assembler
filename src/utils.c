@@ -4,7 +4,6 @@
 #include <string.h>
 #include <ctype.h>
 
-/* copies the filename from the source filename into the target filename with a different extension */
 void copy_filename_with_different_extension(const char* source_filename, char* target_filename, const char* extension) {
     int len = strlen(source_filename);
     int dot_pos = -1;
@@ -70,7 +69,6 @@ int is_consecutive(char* str, char search_str) {
     return 0;
 }
 
-/* Check if a name is a reserved word, returns 1 if reserved, 0 if not */
 int is_reserved_word(const char* name) {
     char* reserved_words[] = {
         "stop", "rts", "prn", "red", "jsr", "bne", "jmp", 
