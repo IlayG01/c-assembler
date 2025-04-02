@@ -30,11 +30,13 @@ int main(int argc, char* argv[]) {
     for (i = 1; i < argc; i++) {
         /* macro process files*/
         copy_filename_with_different_extension(argv[i], as_file, ".as");
+        printf("### Starting macro processing on file %s ###\n", as_file);
         result = macro_process_file(as_file);
         /* assemble files */
         if (result) {
             continue;
         }
+        printf("### Successfully finished macro processing on file %s ###\n", as_file);
         copy_filename_with_different_extension(argv[i], am_file, ".am");
         assemble(am_file);
     }
