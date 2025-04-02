@@ -42,6 +42,8 @@ int macro_process_file(const char* input_as_file) {
     int is_error_encountered = 0;
 
     initialize_macro_table();
+
+    printf("### Starting macro processing on file %s ###\n", input_as_file);
     
     /* Check if the file exists */
     in_file = fopen(input_as_file, "r");
@@ -175,6 +177,14 @@ int macro_process_file(const char* input_as_file) {
     
     fclose(in_file);
     fclose(out_file);
+
+    if (is_error_encountered) {
+        if (remove(output_am_file) != 0) {
+            printf("Warning: Could not remove output file after error\n");
+        }
+    } else {
+        printf("### Successfully finished macro processing on file %s ###\n", input_as_file);
+    }
     
     return is_error_encountered;
 }
