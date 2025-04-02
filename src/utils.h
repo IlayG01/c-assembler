@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdlib.h>
+
+
 /**
  * Copies the filename from the source filename into the target filename with a different extension.
  * 
@@ -32,3 +35,14 @@ int is_consecutive(char* str, char search_str);
  * @return 1 if the name is a reserved word, 0 otherwise.
  */
 int is_reserved_word(const char* name);
+
+/**
+ * Checks if a given label is valid according to assembler rules.
+ * 
+ * @param array The array to extend.
+ * @param current_size The current size of the array.
+ * @param new_size The new size of the array.
+ * @param element_size The size of each element in the array.
+ * @return 0 on success, 1 on failure.
+ */
+int extend_array(void** array, size_t* current_size, size_t new_size, size_t element_size);
