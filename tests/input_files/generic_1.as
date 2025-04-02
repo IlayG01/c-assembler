@@ -1,3 +1,4 @@
+; sample assembly file test 2
 .extern EXT_LABEL
 .entry START
 .entry CALC
