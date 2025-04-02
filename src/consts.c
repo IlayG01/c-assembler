@@ -8,6 +8,10 @@ const char* OPCODE_STRINGS[] = {
     "bne", "jsr", "red", "prn", "rts", "stop"
 };
 
+
+/* Array of opcode rules defining the behavior and constraints of each opcode.
+ Each entry specifies the opcode, its function, allowed operands, and addressing modes.
+*/
 const OpcodeRule OPCODE_TABLE[] = {
     {MOV, 0, 0, 2, {0, 1, 3}, 3, {1, 3}, 2},    
     {CMP, 1, 0, 2, {0, 1, 3}, 3, {0, 1, 3}, 3}, 
@@ -27,4 +31,5 @@ const OpcodeRule OPCODE_TABLE[] = {
     {STOP, 15, 0, 0, {0}, 0, {0}, 0}               
 };
 
+/* The size of the OPCODE_TABLE array, used for iteration, validation, and lookup operations. */
 const int OPCODE_TABLE_SIZE = sizeof(OPCODE_TABLE) / sizeof(OPCODE_TABLE[0]);

@@ -1,3 +1,19 @@
+/**
+ * This file implements the main functionality of a two-pass assembler for a custom assembly language.
+ * It includes functions for parsing assembly code, validating instructions, managing symbol tables,
+ * and generating machine code. The assembler supports directives such as `.data`, `.string`, `.entry`, 
+ * and `.extern`, as well as various addressing modes for instructions.
+ * 
+ * The assembler operates in two cycles:
+ * 1. First Cycle: Parses the input file, builds the symbol table, and translates data and code sections.
+ * 2. Second Cycle: Resolves symbols and generates the final machine code.
+ * 
+ * Outputs:
+ * - Object file (.obj): Contains the machine code.
+ * - Entries file (.ent): Lists entry labels and their addresses.
+ * - Externals file (.ext): Lists external labels and their usage addresses.
+ */
+
 #include "assembler.h"
 
 #include <stdlib.h>
@@ -17,11 +33,12 @@
 #define REGISTER_ADDRESS_MODE 3
 
 
-void assemble(char* filename) {
-    first_cycle(filename);
-}
-
-/* Function to check if a label is valid */
+/**
+ * Checks if a label is valid according to the assembler's rules.
+ * 
+ * @param label The label to validate.
+ * @return 1 if the label is valid, 0 otherwise.
+ */
 int is_valid_label(const char *label) {
     int len = strlen(label);
     int i;
@@ -50,6 +67,12 @@ int is_valid_label(const char *label) {
     return 1;
 }
 
+/**
+ * Extracts a label from a line of assembly code. Assumes the label ends with ':'.
+ * 
+ * @param line The line containing the label.
+ * @param label The buffer to store the extracted label.
+ */
 void get_label(char* line, char* label) {
     /* Find the position of ':' */
     char *colon_pos = strchr(line, ':');
@@ -62,6 +85,14 @@ void get_label(char* line, char* label) {
     label[label_length] = '\0';
 }
 
+/**
+ * Checks if a label exists in the symbol table.
+ * 
+ * @param label The label to check.
+ * @param label_table The symbol table.
+ * @param label_count The number of labels in the table.
+ * @return 1 if the label exists, 0 otherwise.
+ */
 int is_label_exist(char* label, label_element* label_table, size_t label_count) {
     int i;
     for (i = 0; i < label_count; i++)
@@ -74,22 +105,48 @@ int is_label_exist(char* label, label_element* label_table, size_t label_count) 
     return 0;
 }
 
+/**
+ * @param ins The instruction string.
+ * @return 1 if the instruction is a `.data` directive, 0 otherwise.
+ */
 int is_data_instruction(char* ins) {
     return NULL != strstr(ins, ".data");
 }
 
+/**
+ * @param ins The instruction string.
+ * @return 1 if the instruction is a `.entry` directive, 0 otherwise.
+ */
 int is_entry_instruction(char* ins) {
     return NULL != strstr(ins, ".entry");
 }
 
+/**
+ * @param ins The instruction string.
+ * @return 1 if the instruction is a `.extern` directive, 0 otherwise.
+ */
 int is_extern_instruction(char* ins) {
     return NULL != strstr(ins, ".extern");
 }
 
+/**
+ * @param ins The instruction string.
+ * @return 1 if the instruction is a `.string` directive, 0 otherwise.
+ */
 int is_string_instruction(char* ins) {
     return NULL != strstr(ins, ".string");
 }
 
+/**
+ * Adds a label to the symbol table, reallocating memory as needed.
+ * 
+ * @param label_table Pointer to the symbol table.
+ * @param label_count Pointer to the number of labels in the table.
+ * @param label The label to add.
+ * @param address The address associated with the label.
+ * @param label_type The type of the label (e.g., data, code, extern).
+ * @return SUCCESS on success, MEMORY_ALLOCATION_FAILED on failure.
+ */
 int add_label_to_symbol_table(label_element** label_table, size_t* label_count, char* label, size_t address, label_options label_type) {
     char* label_copy;
     size_t current_label_count = *label_count;
@@ -119,6 +176,15 @@ int add_label_to_symbol_table(label_element** label_table, size_t* label_count, 
     return SUCCESS; /* Success */
 }
 
+/**
+ * Parses a `.data` directive and populates the data array with integer values.
+ * 
+ * @param data The data array to populate.
+ * @param count Pointer to the current count of data entries.
+ * @param line The line containing the `.data` directive.
+ * @return SUCCESS on success, 1 on failure.
+ * 
+ */
 int translate_data(data* data, size_t* count, char* line) {
     char *token = strtok(line, " \t");
     int value;
@@ -137,6 +203,14 @@ int translate_data(data* data, size_t* count, char* line) {
     return SUCCESS; /* Success */
 }
 
+/**
+ * Parses a `.string` directive and populates the data array with ASCII values.
+ * 
+ * @param data The data array to populate.
+ * @param count Pointer to the current count of data entries.
+ * @param line The line containing the `.string` directive.
+ * @return SUCCESS on success, 1 on failure.
+ */
 int translate_string(data* data, size_t* count, char* line) {
     size_t str_len;
     int i;
@@ -160,6 +234,10 @@ int translate_string(data* data, size_t* count, char* line) {
     return SUCCESS; /* Success */
 }
 
+/**
+ * @param str The string representation of the opcode.
+ * @return The corresponding opcode enum value, or INVALID if not found.
+ */
 opcode get_opcode(const char* str) {
     int i;
     for (i = 0; i < INVALID; i++) {
@@ -170,6 +248,12 @@ opcode get_opcode(const char* str) {
     return INVALID;  /* Return INVALID if not found */
 }
 
+/**
+ * Parses an instruction line, extracting the opcode and operands.
+ * 
+ * @param instr The instruction structure to populate.
+ * @param line The line containing the instruction.
+ */
 void parse_instruction(instruction* instr, const char* line) {
     char buffer[MAX_BUF_SIZE];
     char* token;
@@ -202,8 +286,13 @@ void parse_instruction(instruction* instr, const char* line) {
     }
 }
 
-
-/* Identify the addressing mode of an operand */
+/**
+ * Identifies the addressing mode of an operand.
+ * 
+ * @param operand The operand string.
+ * @return The addressing mode of the operand.
+ * 
+ */
 int get_addressing_mode(const char* operand) {
     if (!operand) return -1;
     if (operand[0] == '#') return IMMEDIATE_ADDRESS_MODE;
@@ -212,7 +301,14 @@ int get_addressing_mode(const char* operand) {
     return DIRECT_ADDRESS_MODE;
 }
 
-/* Check if mode is allowed for an operand */
+/**
+ * Checks if an addressing mode is allowed for an operand.
+ * 
+ * @param mode The addressing mode to check.
+ * @param allowed_modes Array of allowed addressing modes.
+ * @param num_modes The number of allowed modes.
+ * @return 1 if the mode is allowed, 0 otherwise.
+ */
 int is_mode_allowed(int mode, const int allowed_modes[], int num_modes) {
     int i;
     for (i = 0; i < num_modes; i++) {
@@ -221,6 +317,12 @@ int is_mode_allowed(int mode, const int allowed_modes[], int num_modes) {
     return 0;
 }
 
+/**
+ * Retrieves the rule for a given opcode.
+ * 
+ * @param opcode The opcode to look up.
+ * @return Pointer to the corresponding opcode rule, or NULL if not found.
+ */
 const OpcodeRule* get_opcode_rule(opcode opcode) {
     int i;
     for (i = 0; i < OPCODE_TABLE_SIZE; i++) {
@@ -231,9 +333,13 @@ const OpcodeRule* get_opcode_rule(opcode opcode) {
     return NULL;  /* Return NULL if not found */
 }
 
+/**
+ * Validates an instruction against its opcode rule and addressing modes.
+ * 
+ * @param instr The instruction to validate.
+ * @return SUCCESS if the instruction is valid, or an error code otherwise.
+ */
 int validate_instruction(const instruction* instr) {
-    /* if (!instr) return 0; */
-
     /* Find the corresponding opcode rule */
     const OpcodeRule* rule = get_opcode_rule(instr->opcode);
     if (!rule) {
@@ -269,6 +375,12 @@ int validate_instruction(const instruction* instr) {
     return SUCCESS;  /* Valid instruction */
 }
 
+/**
+ * Writes the first word of machine code in hexadecimal format to a file.
+ * 
+ * @param file The file pointer to write to.
+ * @param first_word The first word structure to write.
+ */
 void write_first_word_hex_to_file(FILE* file, first_word* first_word) {
     unsigned int value = 0;
 
@@ -285,6 +397,12 @@ void write_first_word_hex_to_file(FILE* file, first_word* first_word) {
     fprintf(file, "%06X\n", value & 0xFFFFFF);
 }
 
+/**
+ * Writes an operand of machine code in hexadecimal format to a file.
+ * 
+ * @param file The file pointer to write to.
+ * @param operand The operand structure to write.
+ */
 void write_operand_hex_to_file(FILE* file, operand* operand) {
     unsigned int value = 0;
 
@@ -296,6 +414,12 @@ void write_operand_hex_to_file(FILE* file, operand* operand) {
     fprintf(file, "%06X\n", value & 0xFFFFFF);
 }
 
+/**
+ * Generates the first word of machine code for an instruction.
+ * 
+ * @param instr The instruction to generate the first word for.
+ * @return The generated first word structure.
+ */
 first_word generate_first_word(const instruction* instr) {
     const OpcodeRule* opcode_rule = get_opcode_rule(instr->opcode);
     first_word first_word_val;
@@ -337,6 +461,12 @@ first_word generate_first_word(const instruction* instr) {
     return first_word_val;
 }
 
+/**
+ * Calculates the number of words required for an instruction, including operands.
+ * 
+ * @param instr The instruction to calculate the number of words for.
+ * @return The number of words required for the instruction.
+ */
 int calculate_number_of_words(const instruction* instr) {
     if (instr->num_of_operands == 2) {
         /* Instruction has both source and destination operands */
@@ -352,6 +482,12 @@ int calculate_number_of_words(const instruction* instr) {
     return 1;
 }
 
+/**
+ * Generates the machine code for an operand.
+ * 
+ * @param operand_val The operand string to generate code for.
+ * @return The generated operand structure.
+ */
 operand generate_operand_code(char* operand_val) {
     operand operand = {0};
     operand.A = 1;
@@ -361,6 +497,13 @@ operand generate_operand_code(char* operand_val) {
     return operand;
 }
 
+/**
+ * Builds the machine code for an instruction, resolving immediate operands.
+ * 
+ * @param instr The instruction to build.
+ * @param machine_code The machine code structure to populate.
+ * @return The number of operands resolved.
+ */
 int build_instruction(instruction* instr, machine_code* machine_code) {
     int i;
     int amount_opernads_resolved = 0;
@@ -381,6 +524,17 @@ int build_instruction(instruction* instr, machine_code* machine_code) {
     return amount_opernads_resolved;
 }
 
+/**
+ * Saves the object file (.obj) containing the machine code.
+ * 
+ * @param filename The name of the assembly file.
+ * @param code The machine code array.
+ * @param code_count The number of machine code entries.
+ * @param data The data array.
+ * @param data_count The number of data entries.
+ * @param ICF The final instruction counter value.
+ * @param DCF The final data counter value.
+ */
 void save_obj_file(const char* filename, machine_code* code, size_t code_count, data* data, size_t data_count, size_t ICF, size_t DCF) {
     char obj_filename[FILENAME_MAX];
     FILE* file = NULL;
@@ -388,7 +542,7 @@ void save_obj_file(const char* filename, machine_code* code, size_t code_count, 
     int i, j;
 
     copy_filename_with_different_extension(filename, obj_filename, ".obj");
-    file = fopen(obj_filename, "w"); /* TODO: util function to open files safely */
+    file = fopen(obj_filename, "w");
 
     fprintf(file, "%7ld %ld\n", ICF-CODE_BASE_ADDRESS, DCF);
     for (i = 0; i < code_count; i++)
@@ -410,13 +564,20 @@ void save_obj_file(const char* filename, machine_code* code, size_t code_count, 
     fclose(file);
 }
 
+/**
+ * Saves the entries file (.ent) listing entry labels and their addresses.
+ * 
+ * @param filename The name of the assembly file.
+ * @param label_table The symbol table.
+ * @param label_count The number of labels in the table.
+ */
 void save_entries_file(const char* filename, label_element* label_table, size_t label_count) {
     char ent_filename[FILENAME_MAX];
     FILE* file = NULL;
     int i;
 
     copy_filename_with_different_extension(filename, ent_filename, ".ent");
-    file = fopen(ent_filename, "w"); /* TODO: util function to open files safely */
+    file = fopen(ent_filename, "w");
 
     for (i = 0; i < label_count; i++) {
         if (label_table[i].label_type & entry_label) {
@@ -427,13 +588,20 @@ void save_entries_file(const char* filename, label_element* label_table, size_t 
     fclose(file);
 }
 
+/**
+ * Saves the externals file (.ext) listing external labels and their usage addresses.
+ * 
+ * @param filename The name of the assembly file.
+ * @param externals The externals array.
+ * @param externals_count The number of externals.
+ */
 void save_externals_file(const char* filename, external_info* externals, size_t externals_count) {
     char ext_filename[FILENAME_MAX];
     FILE* file = NULL;
     int i;
 
     copy_filename_with_different_extension(filename, ext_filename, ".ext");
-    file = fopen(ext_filename, "w"); /* TODO: util function to open files safely */
+    file = fopen(ext_filename, "w");
 
     for (i = 0; i < externals_count; i++) {
         fprintf(file, "%s %07d\n", externals[i].label_name, externals[i].address);
@@ -442,8 +610,171 @@ void save_externals_file(const char* filename, external_info* externals, size_t 
     fclose(file);
 }
 
-void first_cycle(char* filename) {
+/**
+ * Performs the second cycle of the assembly process
+ * 
+ * @param file The file pointer to the assembly file.
+ * @param label_table The symbol table.
+ * @param label_count The number of labels in the table.
+ * @param code The machine code array.
+ * @param code_count The number of machine code entries.
+ * @param externals The externals array to populate.
+ * @param externals_count Pointer to the count of externals.
+ * @return 0 on success, 1 if errors were encountered.
+ */
+int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
+    char label[MAX_LABEL_LENGTH + 1] = {0};
+    int code_line_number = 0;
+    int line_number = 0;
+    int is_code_with_errors = 0;
+    int i, j;
+    char* label_copy;
+    char* mod_line;
+
+    rewind(file);
+    while (fgets(line, sizeof(line), file) != NULL) {
+        line_number++;
+        strip_whitespace(line);
+
+        if (line[0] == ';' || strlen(line) == 0) {
+            /* comment - skip */
+            continue;
+        }
+
+        mod_line = line;
+        if (strchr(line, ':')) {
+            get_label(line, label);  /* cant be wrong label - because we check in first cycle */
+            mod_line += strlen(label) + 1;
+        }
+
+        strip_whitespace(mod_line);
+        
+        if (is_data_instruction(mod_line) || is_string_instruction(mod_line) || is_extern_instruction(mod_line)) {
+            continue;
+        }
+        if (is_entry_instruction(mod_line)) {
+            char* token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
+            int found = 0;
+            if (!token || strcmp(token, ".entry")) {
+                printf("Error: Invalid entry line. Line number (%d)\n", line_number);
+                is_code_with_errors = 1;
+                continue;
+            }
+            token = strtok(NULL, " \t"); /* Get the next token, which is the name */
+            if (is_reserved_word(token)) {
+                printf("Error: Invalid entry label (%s) encountered.\n", token);
+                is_code_with_errors = 1;
+                continue;
+            }
+
+            for (i = 0; i < label_count; i++)
+            {
+                if (!strcmp(token, label_table[i].label_name)) {
+                    label_table[i].label_type |= entry_label;
+                    found = 1;
+                }
+            }
+            if (found) {
+                continue;
+            }
+            
+            printf("Error: Entry Label (%s) doesn't exists.\n", token);
+            is_code_with_errors = 1;
+            continue;
+        }
+
+        if (code[code_line_number].need_to_resolve) {
+            instruction instr;
+            int address_mode;
+            int operand_code_index = 0;
+            int label_type;
+            int label_address;
+            char* label_name;
+
+            parse_instruction(&instr, mod_line);
+            for (i = 0; i < instr.num_of_operands; i++) {
+                address_mode = get_addressing_mode(instr.operands[i]);
+                if (address_mode == IMMEDIATE_ADDRESS_MODE) {
+                    operand_code_index++;  /* already built */
+                    continue;
+                }
+                if (address_mode == REGISTER_ADDRESS_MODE) {
+                    continue;  /* no additional word for reg address */
+                }
+
+                label_name = instr.operands[i];
+                if (address_mode == REALTIVE_ADDRESS_MODE) {
+                    /* contain & as prefix */
+                    label_name++;
+                }
+                if (!is_label_exist(label_name, label_table, label_count)) {
+                    printf("Error: Label (%s) doesn't exists.\n", label_name);
+                    is_code_with_errors = 1;
+                    continue;
+                }
+
+                for (j = 0; j < label_count; j++)
+                {
+                    if (!strcmp(label_name, label_table[j].label_name)) {
+                        label_address = label_table[j].address;
+                        label_type = label_table[j].label_type;
+                        break;
+                    }
+                }
+
+                if (label_type == extern_label) {
+                    if (address_mode == REALTIVE_ADDRESS_MODE) {
+                        printf("Error: Invalid jump to external address (%s).\n", label_name);
+                        is_code_with_errors = 1;
+                        continue;
+                    }
+
+                    externals[*externals_count].address = code[code_line_number].IC + 1 + operand_code_index;
+                    label_copy = (char*)malloc(strlen((label_name)) + 1);
+                    if (!label_copy) {
+                        printf("Error: Memory allocation failed.\n");
+                        is_code_with_errors = 1;
+                        continue;
+                    }
+                    strcpy(label_copy, label_name);
+                    externals[*externals_count].label_name = label_copy;
+                    (*externals_count)++;
+
+                    code[code_line_number].operand_code[operand_code_index].A = 0;
+                    code[code_line_number].operand_code[operand_code_index].R = 0;
+                    code[code_line_number].operand_code[operand_code_index].E = 1;
+                    code[code_line_number].operand_code[operand_code_index].integer = 0;
+                } else {
+                    code[code_line_number].operand_code[operand_code_index].E = 0;
+                    if (address_mode == REALTIVE_ADDRESS_MODE) {
+                        code[code_line_number].operand_code[operand_code_index].A = 1;                        
+                        code[code_line_number].operand_code[operand_code_index].R = 0;
+                        code[code_line_number].operand_code[operand_code_index].integer = label_address - code[code_line_number].IC;
+                    } else {
+                        /* address mode == DIRECT_ADDRESS_MODE */
+                        code[code_line_number].operand_code[operand_code_index].A = 0;
+                        code[code_line_number].operand_code[operand_code_index].R = 1;
+                        code[code_line_number].operand_code[operand_code_index].integer = label_address;
+                    }
+                }
+                operand_code_index++;
+            }
+            
+        }
+        code_line_number++;
+    }
+
+    return is_code_with_errors;
+}
+
+/**
+ * Performs the first cycle of the assembly process
+ * 
+ * @param filename The name of the assembly file to process.
+ */
+void first_cycle(char* filename) {
+    char line[MAX_BUF_SIZE];
     char label[MAX_LABEL_LENGTH + 1] = {0};
     int last_error;
     int is_code_with_errors = 0;
@@ -472,7 +803,6 @@ void first_cycle(char* filename) {
         return;
     }
     
-    /* TODO: add error detection */
     while (fgets(line, sizeof(line), file) != NULL) {
         line_number++;
         if (strlen(line) > LINE_MAX_SIZE) {
@@ -639,148 +969,6 @@ void first_cycle(char* filename) {
     }
 }
 
-int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
-    char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
-    char label[MAX_LABEL_LENGTH + 1] = {0};
-    int code_line_number = 0;
-    int line_number = 0;
-    int is_code_with_errors = 0;
-    int i, j;
-    char* label_copy;
-    char* mod_line;
-
-    rewind(file);
-    while (fgets(line, sizeof(line), file) != NULL) {
-        line_number++;
-        strip_whitespace(line);
-
-        if (line[0] == ';' || strlen(line) == 0) {
-            /* comment - skip */
-            continue;
-        }
-
-        mod_line = line;
-        if (strchr(line, ':')) {
-            get_label(line, label);  /* cant be wrong label - because we check in first cycle */
-            mod_line += strlen(label) + 1;
-        }
-
-        strip_whitespace(mod_line);
-        
-        if (is_data_instruction(mod_line) || is_string_instruction(mod_line) || is_extern_instruction(mod_line)) {
-            continue;
-        }
-        if (is_entry_instruction(mod_line)) {
-            char* token = strtok(mod_line, " \t"); /* Tokenize by space or tab */
-            int found = 0;
-            if (!token || strcmp(token, ".entry")) {
-                printf("Error: Invalid entry line. Line number (%d)\n", line_number);
-                is_code_with_errors = 1;
-                continue;
-            }
-            token = strtok(NULL, " \t"); /* Get the next token, which is the name */
-            if (is_reserved_word(token)) {
-                printf("Error: Invalid entry label (%s) encountered.\n", token);
-                is_code_with_errors = 1;
-                continue;
-            }
-
-            for (i = 0; i < label_count; i++)
-            {
-                if (!strcmp(token, label_table[i].label_name)) {
-                    label_table[i].label_type |= entry_label;
-                    found = 1;
-                }
-            }
-            if (found) {
-                continue;
-            }
-            
-            printf("Error: Entry Label (%s) doesn't exists.\n", token);
-            is_code_with_errors = 1;
-            continue;
-        }
-
-        if (code[code_line_number].need_to_resolve) {
-            instruction instr;
-            int address_mode;
-            int operand_code_index = 0;
-            int label_type;
-            int label_address;
-            char* label_name;
-
-            parse_instruction(&instr, mod_line);
-            for (i = 0; i < instr.num_of_operands; i++) {
-                address_mode = get_addressing_mode(instr.operands[i]);
-                if (address_mode == IMMEDIATE_ADDRESS_MODE) {
-                    operand_code_index++;  /* already built */
-                    continue;
-                }
-                if (address_mode == REGISTER_ADDRESS_MODE) {
-                    continue;  /* no additional word for reg address */
-                }
-
-                label_name = instr.operands[i];
-                if (address_mode == REALTIVE_ADDRESS_MODE) {
-                    /* contain & as prefix */
-                    label_name++;
-                }
-                if (!is_label_exist(label_name, label_table, label_count)) {
-                    printf("Error: Label (%s) doesn't exists.\n", label_name);
-                    is_code_with_errors = 1;
-                    continue;
-                }
-
-                for (j = 0; j < label_count; j++)
-                {
-                    if (!strcmp(label_name, label_table[j].label_name)) {
-                        label_address = label_table[j].address;
-                        label_type = label_table[j].label_type;
-                        break;
-                    }
-                }
-
-                if (label_type == extern_label) {
-                    if (address_mode == REALTIVE_ADDRESS_MODE) {
-                        printf("Error: Invalid jump to external address (%s).\n", label_name);
-                        is_code_with_errors = 1;
-                        continue;
-                    }
-
-                    externals[*externals_count].address = code[code_line_number].IC + 1 + operand_code_index;
-                    label_copy = (char*)malloc(strlen((label_name)) + 1);
-                    if (!label_copy) {
-                        printf("Error: Memory allocation failed.\n");
-                        is_code_with_errors = 1;
-                        continue;
-                    }
-                    strcpy(label_copy, label_name);
-                    externals[*externals_count].label_name = label_copy;
-                    (*externals_count)++;
-
-                    code[code_line_number].operand_code[operand_code_index].A = 0;
-                    code[code_line_number].operand_code[operand_code_index].R = 0;
-                    code[code_line_number].operand_code[operand_code_index].E = 1;
-                    code[code_line_number].operand_code[operand_code_index].integer = 0;
-                } else {
-                    code[code_line_number].operand_code[operand_code_index].E = 0;
-                    if (address_mode == REALTIVE_ADDRESS_MODE) {
-                        code[code_line_number].operand_code[operand_code_index].A = 1;                        
-                        code[code_line_number].operand_code[operand_code_index].R = 0;
-                        code[code_line_number].operand_code[operand_code_index].integer = label_address - code[code_line_number].IC;
-                    } else {
-                        /* address mode == DIRECT_ADDRESS_MODE */
-                        code[code_line_number].operand_code[operand_code_index].A = 0;
-                        code[code_line_number].operand_code[operand_code_index].R = 1;
-                        code[code_line_number].operand_code[operand_code_index].integer = label_address;
-                    }
-                }
-                operand_code_index++;
-            }
-            
-        }
-        code_line_number++;
-    }
-
-    return is_code_with_errors;
+void assemble(char* filename) {
+    first_cycle(filename);
 }
