@@ -5,7 +5,7 @@ CC = gcc
 CFLAGS = -Wall -pedantic -ansi
 
 # Source files
-ASSEMBLER_SRC = src/main.c src/assembler.c src/macro_processor.c src/utils.c
+ASSEMBLER_SRC = src/main.c src/assembler.c src/macro_processor.c src/utils.c src/consts.c
 
 # Object files
 ASSEMBLER_OBJ = $(ASSEMBLER_SRC:.c=.o)

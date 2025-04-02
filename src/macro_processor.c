@@ -202,24 +202,6 @@ int is_valid_macro_name(const char* name) {
     return 1;
 }
 
-/* Check if a name is a reserved word, returns 1 if reserved, 0 if not */
-int is_reserved_word(const char* name) {
-    char* reserved_words[] = {
-        "stop", "rts", "prn", "red", "jsr", "bne", "jmp", 
-        "dec", "inc", "not", "clr", "lea", "sub", "add", "cmp", "mov", "mcro", "mcroend"
-    };
-    int i;
-    int num_reserved = sizeof(reserved_words) / sizeof(reserved_words[0]);
-    
-    for (i = 0; i < num_reserved; i++) {
-        if (strcmp(name, reserved_words[i]) == 0) {
-            return 1;
-        }
-    }
-    
-    return 0;
-}
-
 /* Find a macro by name, returns the index of the macro in the table, or -1 if not found */
 int find_macro(const char* name) {
     int i;

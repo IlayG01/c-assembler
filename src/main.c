@@ -8,21 +8,19 @@
 #define MINIMUM_ARGS 2
 
 /* TODOs */
-/* strip whitespaces - between opcodes operands*/
-/* walkthrough the error handling in the assebler flow - only fatal errors should stop the program(files access), other should be printed and continue with a flag to not write output files */
-/* move out utils functions into utils module */
-/* order the code - consts, efficiency, general order*/
-/* docs at assembler.c */
-/* Fix Warnings */
+/* data and externals should be aloocated dynamically */
+/* docs */
+/* Fix Warnings in pre processor */
 /* Add examples for input and output files of the program (images), working example and failures with appropriate errors prints */
-/* main.c */
+/* update main.c */
+/* Solve TODO comments in code */
 
 int main(int argc, char* argv[]) {
     int i, result;
     char as_file[FILENAME_MAX];
     char am_file[FILENAME_MAX];
     
-    if (argc < NO_INPUT_FILES) {
+    if (argc < MINIMUM_ARGS) {
         printf("Usage: %s <file1> [file2] [file3] ...\n", argv[0]);
         return NO_INPUT_FILES;
     }
@@ -30,15 +28,15 @@ int main(int argc, char* argv[]) {
     for (i = 1; i < argc; i++) {
         /* macro process files*/
         copy_filename_with_different_extension(argv[i], as_file, ".as");
-        printf("### Starting macro processing on file %s ###\n", as_file);
+        printf("### Starting processing on file %s ###\n", as_file);
         result = macro_process_file(as_file);
         /* assemble files */
         if (result) {
             continue;
         }
-        printf("### Successfully finished macro processing on file %s ###\n", as_file);
         copy_filename_with_different_extension(argv[i], am_file, ".am");
         assemble(am_file);
+        printf("### finished processing on file %s ###\n", as_file);
     }
 
     return SUCCESS;

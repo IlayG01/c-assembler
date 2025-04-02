@@ -1,6 +1,6 @@
-#ifndef ASSEMBLER_UTILS_H
-#define ASSEMBLER_UTILS_H
+#pragma once
 
 void copy_filename_with_different_extension(const char* source_filename, char* target_filename, const char* extension);
-
-#endif
+void strip_whitespace(char *str);
+int is_consecutive(char* str, char search_str);
+int is_reserved_word(const char* name);
