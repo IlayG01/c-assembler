@@ -53,3 +53,19 @@ void strip_whitespace(char *str) {
     }
     str[i] = '\0'; /* Null-terminate the string */
 }
+
+int is_consecutive(char* str, char search_str) {
+    int flag = 0;
+    while (*str) {
+        if (*str == search_str) {
+            if (flag) {
+                return 1;
+            }
+            flag = 1;
+        } else if (!isspace(*str)) {
+            flag = 0;
+        }
+        str++;
+    }
+    return 0;
+}

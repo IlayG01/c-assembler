@@ -116,25 +116,34 @@ int add_label_to_symbol_table(label_element** label_table, size_t* label_count, 
 }
 
 int translate_data(data* data, size_t* count, char* line) {
-    char *token = strtok(line, " ,"); /* Tokenize by spaces and commas */
-    if (!token || strcmp(token, ".data")) return -1; /* Ensure it's a `.data` directive */
+    char *token = strtok(line, " \t");
+    int value;
+    if (!token || strcmp(token, ".data")) return 1; /* Ensure it's a `.data` directive */
 
-    while ((token = strtok(NULL, " ,")) != NULL) {
-        int value = atoi(token); /* Convert the token into an integer */
+    while ((token = strtok(NULL, ",")) != NULL) {
+        strip_whitespace(token);
+        if (strlen(token) == 0) {
+            return 1;
+        }
+        value = atoi(token); /* Convert the token into an integer */
 
         data[*count].value.integer = value; /* Use the `data` struct's integer field */
         (*count)++;
     }
-    return 0; /* Success */
+    return SUCCESS; /* Success */
 }
 
 int translate_string(data* data, size_t* count, char* line) {
     size_t str_len;
     int i;
-    char *token = strtok(line, " ,"); /* Tokenize by spaces and commas */
+    char *token = strtok(line, "\""); /* Tokenize by " */
+    strip_whitespace(token);
     if (!token || strcmp(token, ".string")) return 1; /* Ensure it's a `.string` directive */
 
     token = strtok(NULL, "\""); /* Get the string inside quotes */
+    if (!token) {
+        return 1;  /* if "" not provided */
+    }
 
     str_len = strlen(token);
     for (i = 0; i < str_len; i++) {
@@ -144,7 +153,7 @@ int translate_string(data* data, size_t* count, char* line) {
     data[*count].value.ascii = 0; /* null */
     (*count)++;
 
-    return 0; /* Success */
+    return SUCCESS; /* Success */
 }
 
 opcode get_opcode(const char* str) {
@@ -165,7 +174,7 @@ void parse_instruction(instruction* instr, const char* line) {
     instr->num_of_operands = 0;
     
     strcpy(buffer, line);  /* Copy to modify safely */
-    token = strtok(buffer, " ,");  /* First token (opcode) */
+    token = strtok(buffer, " \t");  /* First token (opcode) */
     if (!token) {
         instr->opcode = INVALID;
         return;
@@ -175,15 +184,16 @@ void parse_instruction(instruction* instr, const char* line) {
     if (instr->opcode == INVALID) {
         return;
     }
-
+    
     /* Extract operands */
-    while (i < MAX_OPERANDS && (token = strtok(NULL, " ,"))) {
+    while (i < MAX_OPERANDS && (token = strtok(NULL, ","))) {
+        strip_whitespace(token);
         strcpy(instr->operands[i], token);
         instr->num_of_operands++;
         i++;
     }
 
-    if (strtok(NULL, " ,") != NULL) {
+    if (strtok(NULL, ",") != NULL) {
         instr->opcode = INVALID;  /* Mark as invalid */
     }
 }
@@ -462,8 +472,21 @@ void first_cycle(char* filename) {
         }
         strip_whitespace(line);
 
-        if (line[0] == ';') {
+        if (line[0] == ';' || strlen(line) == 0) {
             /* comment - skip */
+            continue;
+        }
+
+        if (is_consecutive(line, ',')) {
+            printf("Error: Multiple commas in line (%d).\n", line_number);
+            is_code_with_errors = 1;
+            continue;
+        }
+
+        /* check trailing commas */
+        if (strlen(line) > 0 && line[strlen(line) - 1] == ',') {
+            printf("Error: comma at the end of line (%d).\n", line_number);
+            is_code_with_errors = 1;
             continue;
         }
 
@@ -507,7 +530,7 @@ void first_cycle(char* filename) {
                 last_error = translate_string(data, &data_count, mod_line);
             }
             if (last_error) {
-                printf("Error: Couldn't translate data/string. Line (%s)\n", mod_line);
+                printf("Error: Couldn't translate data/string. Line number (%d)\n", line_number);
                 is_code_with_errors = 1;
                 continue;
             }
@@ -540,7 +563,7 @@ void first_cycle(char* filename) {
             parse_instruction(&ins, mod_line);
             last_error = validate_instruction(&ins);
             if (last_error) {
-                printf("Error: Couldn't validate instruction (%s).\n", line);
+                printf("Error: Couldn't validate instruction (%s) linu number (%d).\n", line, line_number);
                 is_code_with_errors = 1;
                 continue;
             }
@@ -608,7 +631,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
     while (fgets(line, sizeof(line), file) != NULL) {
         strip_whitespace(line);
 
-        if (line[0] == ';') {
+        if (line[0] == ';' || strlen(line) == 0) {
             /* comment - skip */
             continue;
         }
