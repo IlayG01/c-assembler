@@ -185,9 +185,11 @@ int add_label_to_symbol_table(label_element** label_table, size_t* label_count, 
  * @return SUCCESS on success, 1 on failure.
  * 
  */
-int translate_data(data* data, size_t* count, char* line) {
+int translate_data(data** data_table, size_t* count, char* line) {
     char *token = strtok(line, " \t");
     int value;
+    data* new_table;
+
     if (!token || strcmp(token, ".data")) return 1; /* Ensure it's a `.data` directive */
 
     while ((token = strtok(NULL, ",")) != NULL) {
@@ -197,7 +199,13 @@ int translate_data(data* data, size_t* count, char* line) {
         }
         value = atoi(token); /* Convert the token into an integer */
 
-        data[*count].value.integer = value; /* Use the `data` struct's integer field */
+        new_table = realloc(*data_table, (*count + 1) * sizeof(data));
+        if (!new_table) {
+            return MEMORY_ALLOCATION_FAILED;
+        }
+        *data_table = new_table;
+
+        (*data_table)[*count].value.integer = value; /* Use the `data` struct's integer field */
         (*count)++;
     }
     return SUCCESS; /* Success */
@@ -211,9 +219,10 @@ int translate_data(data* data, size_t* count, char* line) {
  * @param line The line containing the `.string` directive.
  * @return SUCCESS on success, 1 on failure.
  */
-int translate_string(data* data, size_t* count, char* line) {
+int translate_string(data** data_table, size_t* count, char* line) {
     size_t str_len;
     int i;
+    data* new_table;
     char *token = strtok(line, "\""); /* Tokenize by " */
     strip_whitespace(token);
     if (!token || strcmp(token, ".string")) return 1; /* Ensure it's a `.string` directive */
@@ -224,11 +233,17 @@ int translate_string(data* data, size_t* count, char* line) {
     }
 
     str_len = strlen(token);
+    new_table = realloc(*data_table, ((*count) + str_len + 1) * sizeof(data));
+    if (!new_table) {
+        return MEMORY_ALLOCATION_FAILED;
+    }
+    *data_table = new_table;
+
     for (i = 0; i < str_len; i++) {
-        data[*count].value.ascii = (int)token[i]; /* Use the `data` struct's integer field */
+        (*data_table)[*count].value.ascii = (int)token[i]; /* Use the `data` struct's integer field */
         (*count)++;
     }
-    data[*count].value.ascii = 0; /* null */
+    (*data_table)[*count].value.ascii = 0; /* null */
     (*count)++;
 
     return SUCCESS; /* Success */
@@ -622,7 +637,7 @@ void save_externals_file(const char* filename, external_info* externals, size_t 
  * @param externals_count Pointer to the count of externals.
  * @return 0 on success, 1 if errors were encountered.
  */
-int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info* externals, size_t* externals_count) {
+int second_cycle(FILE* file, label_element* label_table, size_t label_count, machine_code* code, size_t code_count, external_info** externals, size_t* externals_count) {
     char line[MAX_BUF_SIZE];  /* Line Max Size = 80 */
     char label[MAX_LABEL_LENGTH + 1] = {0};
     int code_line_number = 0;
@@ -686,6 +701,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
 
         if (code[code_line_number].need_to_resolve) {
             instruction instr;
+            external_info* new_table;
             int address_mode;
             int operand_code_index = 0;
             int label_type;
@@ -730,7 +746,16 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                         continue;
                     }
 
-                    externals[*externals_count].address = code[code_line_number].IC + 1 + operand_code_index;
+                    /* extending the size of externals */
+                    new_table = realloc(*externals, (*externals_count + 1) * sizeof(external_info));
+                    if (!new_table) {
+                        printf("Error: Memory allocation failed.\n");
+                        is_code_with_errors = 1;
+                        continue;
+                    }
+                    *externals = new_table;
+                    (*externals)[*externals_count].address = code[code_line_number].IC + 1 + operand_code_index;
+
                     label_copy = (char*)malloc(strlen((label_name)) + 1);
                     if (!label_copy) {
                         printf("Error: Memory allocation failed.\n");
@@ -738,7 +763,7 @@ int second_cycle(FILE* file, label_element* label_table, size_t label_count, mac
                         continue;
                     }
                     strcpy(label_copy, label_name);
-                    externals[*externals_count].label_name = label_copy;
+                    (*externals)[*externals_count].label_name = label_copy;
                     (*externals_count)++;
 
                     code[code_line_number].operand_code[operand_code_index].A = 0;
@@ -789,8 +814,8 @@ void first_cycle(char* filename) {
     instruction ins;
     
     machine_code code[MAX_INSTRUCTIONS];
-    data data[MAX_INSTRUCTIONS];
-    external_info externals[MAX_INSTRUCTIONS];
+    data* data = NULL;
+    external_info* externals = NULL;
     label_element* label_table = NULL;
     size_t label_count = 0, data_count = 0, code_count = 0, externals_count = 0;
     size_t data_count_temp;
@@ -865,9 +890,9 @@ void first_cycle(char* filename) {
             }
             data_count_temp = data_count;
             if (is_data_instruction(mod_line)) {
-                last_error = translate_data(data, &data_count, mod_line);
+                last_error = translate_data(&data, &data_count, mod_line);
             } else {
-                last_error = translate_string(data, &data_count, mod_line);
+                last_error = translate_string(&data, &data_count, mod_line);
             }
             if (last_error) {
                 printf("Error: Couldn't translate data/string. Line number (%d)\n", line_number);
@@ -944,7 +969,7 @@ void first_cycle(char* filename) {
             }
         }
         
-        last_error = second_cycle(file, label_table, label_count, code, code_count, externals, &externals_count);
+        last_error = second_cycle(file, label_table, label_count, code, code_count, &externals, &externals_count);
         if (!last_error) {
             save_obj_file(filename, code, code_count, data, data_count, ICF, DCF);
             save_entries_file(filename, label_table, label_count);
@@ -957,6 +982,7 @@ void first_cycle(char* filename) {
         free(label_table[i].label_name);
     }
     free(label_table);
+    free(data);
     for (i = 0; i < code_count; i++)
     {
         if (code[i].operand_code != NULL) {
@@ -967,6 +993,7 @@ void first_cycle(char* filename) {
     {
         free(externals[i].label_name);
     }
+    free(externals);
 }
 
 void assemble(char* filename) {
