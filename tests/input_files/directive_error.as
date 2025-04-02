@@ -1,4 +1,3 @@
-; invalid extern and enrty directives in the same file
 .entry HELLO
 ; invalid naming
 .entry 505
